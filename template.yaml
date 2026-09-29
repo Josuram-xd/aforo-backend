@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: aforo-backend - API del piloto de aforo (API Gateway HTTP API + Lambda)
+
+Globals:
+  Function:
+    Runtime: python3.14
+    Architectures:
+      - arm64
+    CodeUri: src/
+    MemorySize: 128
+    Timeout: 10
+
+Resources:
+  # Single HTTP API shared by all routes; routes are attached per function (task 2.2 onwards).
+  AforoHttpApi:
+    Type: AWS::Serverless::HttpApi
+
+Outputs:
+  ApiUrl:
+    Description: URL base del API
+    Value: !Sub "https://${AforoHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}"

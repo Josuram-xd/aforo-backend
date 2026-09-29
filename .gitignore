@@ -1,0 +1,22 @@
+# SAM build output
+.aws-sam/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local environment / secrets
+.env
+env.json
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

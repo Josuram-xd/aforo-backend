@@ -29,7 +29,7 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 ## Prioridad 1 — Crítico
 
 ### Task 1 — Inicializar el proyecto
-- [ ] **1.1** `chore: init sam project structure` — `template.yaml`, `src/handlers/`, `src/models/`, `src/db/`, `tests/`, `requirements.txt`, `.gitignore` (excluir `.aws-sam/`).
+- [x] **1.1** `chore: init sam project structure` — `template.yaml`, `src/handlers/`, `src/models/`, `src/db/`, `tests/`, `requirements.txt`, `.gitignore` (excluir `.aws-sam/`).
 - [ ] **1.2** `chore: add pytest and ruff config` — `pyproject.toml` con pytest y ruff.
 - [x] **1.3** `docs: add PRD, ARCHITECTURE and AGENTS` — Subir los documentos a la raíz.
 
