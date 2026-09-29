@@ -1,0 +1,40 @@
+[project]
+name = "aforo-backend"
+version = "0.1.0"
+description = "API en la nube del piloto de aforo (API Gateway + Lambda + DynamoDB)"
+requires-python = ">=3.14"
+
+# Lambda runtime dependencies live in requirements.txt (packaged by `sam build`).
+# Dev-only tools go here; install with: pip install --group dev
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.16.9",
+]
+
+[tool.pytest.ini_options]
+# src/ is the Lambda code root, so tests import `handlers.x`, `models.x`, `db.x`.
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests"]
+extend-exclude = [".aws-sam"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["handlers", "models", "db"]
