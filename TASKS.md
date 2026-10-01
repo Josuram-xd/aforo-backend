@@ -37,10 +37,10 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 - [x] **2.1** `feat(api): add health handler` — `src/handlers/health.py`: función `handler(event, context)` que responde `{"status": "ok"}`.
 - [x] **2.2** `feat(infra): wire get health route` — Ruta `GET /health` en `template.yaml` (HTTP API + Lambda Python 3.14).
 - [x] **2.3** `chore(infra): add samconfig for pilot stack` — `samconfig.toml` con nombre del stack y región.
-- [ ] **2.4** (sin commit) `sam deploy` y probar `curl <url>/health`.
+- [x] **2.4** (sin commit) `sam deploy` y probar `curl <url>/health`.
 
 ### Task 3 — Contrato compartido
-- [ ] **3.1** `feat(models): add direction, method and camera enums` — `src/models/event.py`: `Direction` (`ENTRY`/`EXIT`), `EventMethod` (`FACE`/`BODY_ONLY`), `CameraId` (`camera-outside`/`camera-inside`).
+- [x] **3.1** `feat(models): add direction, method and camera enums` — `src/models/event.py`: `Direction` (`ENTRY`/`EXIT`), `EventMethod` (`FACE`/`BODY_ONLY`), `CameraId` (`camera-outside`/`camera-inside`).
 - [ ] **3.2** `feat(models): add aforo event schema with validation` — Modelo Pydantic `AforoEvent` idéntico al contrato de `ARCHITECTURE.md`. Si cambia, avisar a `aforo-vision` (task 7.1) y `aforo-frontend` (task 4.1).
 - [ ] **3.3** `test(models): validate accepted and rejected payloads` — Casos válidos, campos faltantes y enums inválidos.
 
