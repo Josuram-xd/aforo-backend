@@ -10,6 +10,14 @@ Globals:
     CodeUri: src/
     MemorySize: 128
     Timeout: 10
+    # Table lives in the aforo-db stack; every function reads its name from TABLE_NAME.
+    # Policies are not supported in Globals: each function that touches the table must add
+    #   Policies:
+    #     - DynamoDBCrudPolicy:
+    #         TableName: !ImportValue AforoPilotTableName
+    Environment:
+      Variables:
+        TABLE_NAME: !ImportValue AforoPilotTableName
 
 Resources:
   # Single HTTP API shared by all routes; routes are attached per function (task 2.2 onwards).
