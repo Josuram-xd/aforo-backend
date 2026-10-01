@@ -1,3 +1,5 @@
 # Runtime dependencies packaged into the Lambda functions.
+# Lives in src/ because `sam build` looks for it next to CodeUri.
 # boto3 is already provided by the python3.14 Lambda runtime; do not add it here.
 # Pin each dependency to its latest stable version supporting Python 3.14 (see AGENTS.md rule 7).
+pydantic==2.13.5

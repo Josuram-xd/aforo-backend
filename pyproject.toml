@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "API en la nube del piloto de aforo (API Gateway + Lambda + DynamoDB)"
 requires-python = ">=3.14"
 
-# Lambda runtime dependencies live in requirements.txt (packaged by `sam build`).
-# Dev-only tools go here; install with: pip install --group dev
+# Lambda runtime dependencies live in src/requirements.txt (packaged by `sam build`).
+# Dev-only tools go here; install both with: pip install -r src/requirements.txt --group dev
 [dependency-groups]
 dev = [
     "pytest==9.1.1",

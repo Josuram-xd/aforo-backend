@@ -41,7 +41,7 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 
 ### Task 3 — Contrato compartido
 - [x] **3.1** `feat(models): add direction, method and camera enums` — `src/models/event.py`: `Direction` (`ENTRY`/`EXIT`), `EventMethod` (`FACE`/`BODY_ONLY`), `CameraId` (`camera-outside`/`camera-inside`).
-- [ ] **3.2** `feat(models): add aforo event schema with validation` — Modelo Pydantic `AforoEvent` idéntico al contrato de `ARCHITECTURE.md`. Si cambia, avisar a `aforo-vision` (task 7.1) y `aforo-frontend` (task 4.1).
+- [x] **3.2** `feat(models): add aforo event schema with validation` — Modelo Pydantic `AforoEvent` idéntico al contrato de `ARCHITECTURE.md`. Si cambia, avisar a `aforo-vision` (task 7.1) y `aforo-frontend` (task 4.1).
 - [ ] **3.3** `test(models): validate accepted and rejected payloads` — Casos válidos, campos faltantes y enums inválidos.
 
 ### Task 4 — Cliente de DynamoDB
