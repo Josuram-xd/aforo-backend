@@ -16,6 +16,18 @@ Resources:
   AforoHttpApi:
     Type: AWS::Serverless::HttpApi
 
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.health.handler
+      Events:
+        GetHealth:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AforoHttpApi
+            Path: /health
+            Method: GET
+
 Outputs:
   ApiUrl:
     Description: URL base del API
