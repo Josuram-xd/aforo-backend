@@ -2,26 +2,31 @@
 
 Key design (see aforo-db/ARCHITECTURE.md):
 - Events: PK = EVENT#<YYYY-MM-DD>, SK = <timestamp>#<eventId>, both in UTC.
+- People: PK = PERSON#<personId>, SK = PROFILE (created by aforo-db/scripts/seed_people.py).
 """
 
 import os
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from functools import cache
+from uuid import UUID
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 
-from models.event import AforoEvent
+from models.event import AforoEvent, Direction
 
 # Upper bound on how many daily partitions a single query_events call may touch.
 MAX_QUERY_DAYS = 31
 
-# Fixed-width UTC format so sort keys order lexicographically by time
-# ("...00Z" and "...00.5Z" would sort the wrong way if mixed).
-_SK_TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+# Fixed-width UTC format so stored timestamps (event SK, lastEventAt) compare lexicographically
+# by time ("...00Z" and "...00.5Z" would sort the wrong way if mixed).
+_SORTABLE_TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 # Sorts after any eventId (UUID chars), making the upper bound inclusive.
 _SK_UPPER_SUFFIX = "#~"
+
+_STATUS_BY_DIRECTION = {Direction.ENTRY: "IN", Direction.EXIT: "OUT"}
 
 _EVENT_FIELDS = {field.alias for field in AforoEvent.model_fields.values()}
 
@@ -42,8 +47,8 @@ def _event_pk(day: date) -> str:
     return f"EVENT#{day.isoformat()}"
 
 
-def _sk_timestamp(ts: datetime) -> str:
-    return ts.strftime(_SK_TIMESTAMP_FORMAT)
+def _sortable_timestamp(ts: datetime) -> str:
+    return ts.strftime(_SORTABLE_TIMESTAMP_FORMAT)
 
 
 def _item_to_event(item: dict) -> AforoEvent:
@@ -60,7 +65,7 @@ def put_event(event: AforoEvent) -> None:
     # DynamoDB rejects floats; str() keeps the value as sent (0.91, not 0.9100000000000000310...).
     item["confidence"] = Decimal(str(event.confidence))
     item["PK"] = _event_pk(ts.date())
-    item["SK"] = f"{_sk_timestamp(ts)}#{event.event_id}"
+    item["SK"] = f"{_sortable_timestamp(ts)}#{event.event_id}"
     _table().put_item(Item=item)
 
 
@@ -78,7 +83,9 @@ def query_events(from_ts: datetime, to_ts: datetime) -> list[AforoEvent]:
     if days > MAX_QUERY_DAYS:
         raise ValueError(f"El rango de fechas no puede superar {MAX_QUERY_DAYS} días.")
 
-    sk_range = Key("SK").between(_sk_timestamp(start), _sk_timestamp(end) + _SK_UPPER_SUFFIX)
+    sk_range = Key("SK").between(
+        _sortable_timestamp(start), _sortable_timestamp(end) + _SK_UPPER_SUFFIX
+    )
     events = []
     for offset in range(days):
         key_condition = Key("PK").eq(_event_pk(start.date() + timedelta(days=offset))) & sk_range
@@ -90,3 +97,31 @@ def query_events(from_ts: datetime, to_ts: datetime) -> list[AforoEvent]:
                 break
             kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
     return events
+
+
+def update_person_status(person_id: UUID | str, direction: Direction, ts: datetime) -> bool:
+    """Set a person's status (ENTRY -> IN, EXIT -> OUT) and lastEventAt.
+
+    Returns False without writing when the person is not in the roster (no PROFILE item),
+    or when ts is not newer than the stored lastEventAt: a late retry from aforo-vision's
+    queue must not overwrite a more recent crossing.
+    """
+    try:
+        _table().update_item(
+            Key={"PK": f"PERSON#{person_id}", "SK": "PROFILE"},
+            UpdateExpression="SET #status = :status, lastEventAt = :ts",
+            ConditionExpression=(
+                "attribute_exists(PK) AND (attribute_not_exists(lastEventAt) OR lastEventAt < :ts)"
+            ),
+            # "status" is a DynamoDB reserved word.
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={
+                ":status": _STATUS_BY_DIRECTION[direction],
+                ":ts": _sortable_timestamp(_to_utc(ts)),
+            },
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+            raise
+        return False
+    return True
