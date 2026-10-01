@@ -34,7 +34,7 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 - [x] **1.3** `docs: add PRD, ARCHITECTURE and AGENTS` — Subir los documentos a la raíz.
 
 ### Task 2 — "Hola mundo" desplegado **[HITO SEPT]**
-- [ ] **2.1** `feat(api): add health handler` — `src/handlers/health.py`: función `handler(event, context)` que responde `{"status": "ok"}`.
+- [x] **2.1** `feat(api): add health handler` — `src/handlers/health.py`: función `handler(event, context)` que responde `{"status": "ok"}`.
 - [ ] **2.2** `feat(infra): wire get health route` — Ruta `GET /health` en `template.yaml` (HTTP API + Lambda Python 3.14).
 - [ ] **2.3** `chore(infra): add samconfig for pilot stack` — `samconfig.toml` con nombre del stack y región.
 - [ ] **2.4** (sin commit) `sam deploy` y probar `curl <url>/health`.
