@@ -1,0 +1,22 @@
+version = 0.1
+
+[default.global.parameters]
+stack_name = "aforo-pilot-backend"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.validate.parameters]
+lint = true
+
+[default.deploy.parameters]
+region = "us-east-1"
+# SAM-managed S3 bucket that holds the packaged Lambda code.
+resolve_s3 = true
+s3_prefix = "aforo-pilot-backend"
+# Needed because SAM creates the IAM execution roles for the Lambdas.
+capabilities = "CAPABILITY_IAM"
+# Show the changeset and ask before creating anything in AWS.
+confirm_changeset = true
+fail_on_empty_changeset = false
