@@ -56,6 +56,11 @@ It contains **no** computer-vision code and **no** video handling — that all l
 **Decision**: The local ML pipeline lives in its own repository (`aforo-vision`), fully separate from this cloud API repository (`aforo-backend`).
 **Why**: they have different runtimes (local laptop process vs. cloud Lambda), different dependency footprints (heavy CV/ML libraries vs. a thin API layer), and different deployment lifecycles (one is "run once during the pilot," the other is "deployed to AWS ahead of time"). Keeping them separate keeps each repo's `AGENTS.md`/dependencies focused and avoids shipping ML dependencies into the Lambda deployment package.
 
+### ADR-005: User login with Amazon Cognito (groups `viewer` and `dev`)
+**Decision**: Users sign in through an Amazon Cognito User Pool defined in this repo's `template.yaml`. Two groups: `viewer` (dashboard + plain camera view) and `dev` (everything `viewer` has, plus the annotated "how the pipeline is analyzing" stream). The HTTP API uses a JWT authorizer on every `GET` route; `POST /events` keeps the shared-secret header (task 8.1) because `aforo-vision` is a machine client, not a user. Accounts are created by an admin script (no public self sign-up).
+**Why**: Cognito is managed (no password storage or hashing code of our own), lives in the same AWS account, issues standard JWTs that API Gateway validates natively and that `aforo-vision` can also validate locally for its LAN stream server, and its free tier covers a pilot's handful of users (verify the current Cognito free-tier limits before deploying, per rule 5 of `AGENTS.md`). User data does not go into DynamoDB, so `aforo-db` is unaffected.
+**Video is not served by this backend**: camera streams stay on the laptop's local network (served by `aforo-vision`, see its ADR-006); this API only authenticates users.
+
 ## 4. Shared event contract
 
 This is the canonical definition — `aforo-vision` (producer) and `aforo-frontend` (consumer) must stay in sync with it.
@@ -87,6 +92,8 @@ This is the canonical definition — `aforo-vision` (producer) and `aforo-fronte
 | `/events` | `GET` | Query params: `from`, `to` (ISO timestamps, optional) | List of events |
 | `/aforo` | `GET` | — | `{ "currentOccupancy": number, "lastUpdated": timestamp }` |
 | `/people` | `GET` | — | List of `{ personId, name, status: "IN" \| "OUT", lastEventAt }` |
+
+**Auth**: every `GET` route requires `Authorization: Bearer <Cognito access token>` from a user in group `viewer` or `dev` (otherwise `401`). `POST /events` requires the shared-secret header instead. `GET /health` stays public.
 
 ## 6. Tech stack
 

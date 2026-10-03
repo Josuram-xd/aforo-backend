@@ -19,7 +19,7 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 | A — Arranque (en paralelo) | 1-3 | 1-2 | 1-3 | 1-2 |
 | B — Núcleo | 4 | 3-7 | 4-6 | 3-5 (con datos mock) |
 | C — Integración | — | — | 7 | 6 |
-| D — Ensayo y ajustes | 5 | 8-9 | 8-11 | 7-8 |
+| D — Ensayo y ajustes | 5 | 8-9, 11 (login) | 8-11 | 7-8, 11 (login) |
 | E — Extras | 6 | 10 | 12-13 | 9-10 |
 
 **Hito fin de septiembre:** fase A completa → aquí, el `GET /health` desplegado en AWS (task 2).
@@ -83,6 +83,15 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 - [ ] **9.1** `feat(logging): add structured logs per request` — Log JSON con ruta, estado y `eventId`.
 - [ ] **9.2** `chore(infra): set log retention to 7 days` — Evita acumular logs (y costo) en CloudWatch.
 - [ ] **9.3** `feat(db): set expires at on event items` — Escribir `expiresAt` en cada evento para el borrado automático. Depende de: Seguir con la task 5 del repo: `aforo-db`.
+
+### Task 11 — Login de usuarios (Cognito)
+> Depende de: task 6 de este repo (rutas GET ya creadas).
+
+- [ ] **11.1** `feat(infra): add cognito user pool with viewer and dev groups` — En `template.yaml`: User Pool sin auto-registro (solo el admin crea cuentas), App Client público con PKCE (sin secreto), dominio de login administrado, grupos `viewer` y `dev`. Outputs `UserPoolId`, `UserPoolClientId`, `UserPoolDomain` (los usan `aforo-frontend` task 11 y `aforo-vision` task 12). Verificar antes los límites vigentes del nivel gratuito de Cognito.
+- [ ] **11.2** `feat(infra): protect read routes with jwt authorizer` — Authorizer JWT del HTTP API sobre `GET /events`, `GET /aforo`, `GET /people` (y `GET /events/export` si existe). `GET /health` queda pública y `POST /events` sigue con el secreto de 8.1. CORS: permitir el header `Authorization`.
+- [ ] **11.3** `feat(scripts): add create user script` — `scripts/create_user.py <correo> <viewer|dev>`: crea la cuenta con `admin_create_user` (contraseña temporal por correo) y la agrega al grupo.
+- [ ] **11.4** `test(api): reject read routes without token` — Verificar que el template declara el authorizer en las rutas GET y no en `/health` ni `POST /events`.
+- [ ] **11.5** (sin commit) `sam deploy`, crear un usuario `viewer` y uno `dev`, y probar con `curl` que sin token responde 401 y con token 200.
 
 ---
 

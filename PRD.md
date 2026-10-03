@@ -21,7 +21,7 @@
 
 - No procesa video ni imágenes — solo recibe JSON ya resuelto por `aforo-vision`.
 - No hace reconocimiento facial ni tracking — eso vive en `aforo-vision`.
-- No maneja autenticación de usuarios finales — es un piloto de un día, de uso interno.
+- No guarda usuarios ni contraseñas propias — el login lo maneja Amazon Cognito (ver ADR-005 en `ARCHITECTURE.md`).
 - No necesita alta disponibilidad ni escalar a múltiples salones/cámaras — es un solo curso, un solo día.
 - No usa colas de mensajería (Kafka/MQTT) ni contenedores — un solo productor de eventos de baja frecuencia no las justifica (ver ADR en `ARCHITECTURE.md`).
 
@@ -30,6 +30,7 @@
 - `aforo-vision`, como cliente que escribe eventos (`POST /events`).
 - `aforo-frontend`, como cliente que lee datos para mostrarlos (`GET /aforo`, `GET /events`, `GET /people`).
 - Josuram, para revisar logs y depurar durante el piloto.
+- Usuarios con login (grupo `viewer`: ven el dashboard y las cámaras; grupo `dev`: además ven el video anotado del análisis).
 
 ## 5. Requisitos funcionales
 
@@ -39,6 +40,8 @@
 | `/events` | `GET` | Lista de eventos, con filtro opcional `from`/`to` | `aforo-frontend` |
 | `/aforo` | `GET` | Aforo actual (personas dentro en este momento) | `aforo-frontend` |
 | `/people` | `GET` | Lista de personas enroladas y su estado (dentro/fuera) | `aforo-frontend` |
+
+Las rutas `GET` exigen un usuario con sesión iniciada (token de Cognito de los grupos `viewer` o `dev`). `POST /events` exige el secreto compartido de `aforo-vision`.
 
 ## 6. Requisitos no funcionales
 
