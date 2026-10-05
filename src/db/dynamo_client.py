@@ -3,6 +3,7 @@
 Key design (see aforo-db/ARCHITECTURE.md):
 - Events: PK = EVENT#<YYYY-MM-DD>, SK = <timestamp>#<eventId>, both in UTC.
 - People: PK = PERSON#<personId>, SK = PROFILE (created by aforo-db/scripts/seed_people.py).
+- Occupancy: PK = AFORO, SK = CURRENT, with the number in currentOccupancy.
 """
 
 import os
@@ -25,6 +26,9 @@ MAX_QUERY_DAYS = 31
 _SORTABLE_TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 # Sorts after any eventId (UUID chars), making the upper bound inclusive.
 _SK_UPPER_SUFFIX = "#~"
+
+_OCCUPANCY_PK = "AFORO"
+_OCCUPANCY_SK = "CURRENT"
 
 _STATUS_BY_DIRECTION = {Direction.ENTRY: "IN", Direction.EXIT: "OUT"}
 
@@ -125,3 +129,63 @@ def update_person_status(person_id: UUID | str, direction: Direction, ts: dateti
             raise
         return False
     return True
+
+
+def _is_condition_failure(error: ClientError) -> bool:
+    return error.response["Error"]["Code"] == "ConditionalCheckFailedException"
+
+
+def change_occupancy(delta: int) -> int:
+    """Atomically add delta to the occupancy counter and return the new value.
+
+    The counter never goes below 0: a decrement larger than the current value clamps it to 0.
+    The item is created on first use (ADD treats a missing number as 0).
+    """
+    if delta == 0:
+        return get_occupancy()
+
+    key = {"PK": _OCCUPANCY_PK, "SK": _OCCUPANCY_SK}
+    now = _sortable_timestamp(datetime.now(UTC))
+    try:
+        kwargs = {}
+        if delta < 0:
+            kwargs["ConditionExpression"] = "currentOccupancy >= :needed"
+        response = _table().update_item(
+            Key=key,
+            UpdateExpression="ADD currentOccupancy :delta SET lastUpdated = :now",
+            ExpressionAttributeValues={
+                ":delta": delta,
+                ":now": now,
+                **({":needed": -delta} if delta < 0 else {}),
+            },
+            ReturnValues="UPDATED_NEW",
+            **kwargs,
+        )
+    except ClientError as e:
+        if delta > 0 or not _is_condition_failure(e):
+            raise
+        # Not enough to subtract (or no counter yet): clamp to 0. The condition makes this
+        # safe against a concurrent increment that would have made the first attempt succeed.
+        try:
+            response = _table().update_item(
+                Key=key,
+                UpdateExpression="SET currentOccupancy = :zero, lastUpdated = :now",
+                ConditionExpression=(
+                    "attribute_not_exists(currentOccupancy) OR currentOccupancy < :needed"
+                ),
+                ExpressionAttributeValues={":zero": 0, ":now": now, ":needed": -delta},
+                ReturnValues="UPDATED_NEW",
+            )
+        except ClientError as retry_error:
+            if not _is_condition_failure(retry_error):
+                raise
+            return change_occupancy(delta)  # a concurrent increment won the race; try again
+    return int(response["Attributes"]["currentOccupancy"])
+
+
+def get_occupancy() -> int:
+    """Return the current occupancy, or 0 if the counter item does not exist yet."""
+    item = _table().get_item(
+        Key={"PK": _OCCUPANCY_PK, "SK": _OCCUPANCY_SK}, ConsistentRead=True
+    ).get("Item")
+    return int(item["currentOccupancy"]) if item else 0
