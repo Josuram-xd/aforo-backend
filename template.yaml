@@ -36,6 +36,21 @@ Resources:
             Path: /health
             Method: GET
 
+  PostEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.post_events.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue AforoPilotTableName
+      Events:
+        PostEvents:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AforoHttpApi
+            Path: /events
+            Method: POST
+
 Outputs:
   ApiUrl:
     Description: URL base del API
