@@ -2,6 +2,15 @@ AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: aforo-backend - API del piloto de aforo (API Gateway HTTP API + Lambda)
 
+Parameters:
+  AmplifyOrigin:
+    Type: String
+    Default: "https://amplify-pendiente.invalid"
+    Description: >-
+      Origen del dashboard en AWS Amplify permitido por CORS (por ejemplo
+      https://main.d1234abcd.amplifyapp.com, sin barra final). El valor por defecto es un
+      marcador que no coincide con ningun sitio real.
+
 Globals:
   Function:
     Runtime: python3.14
@@ -23,6 +32,19 @@ Resources:
   # Single HTTP API shared by all routes; routes are attached per function (task 2.2 onwards).
   AforoHttpApi:
     Type: AWS::Serverless::HttpApi
+    Properties:
+      # The dashboard (Amplify or local dev server) calls the GET routes from the browser.
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AmplifyOrigin
+          - http://localhost:5173
+          - http://localhost:3000
+        AllowMethods:
+          - GET
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 600
 
   HealthFunction:
     Type: AWS::Serverless::Function
@@ -50,6 +72,51 @@ Resources:
             ApiId: !Ref AforoHttpApi
             Path: /events
             Method: POST
+
+  GetAforoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.get_aforo.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue AforoPilotTableName
+      Events:
+        GetAforo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AforoHttpApi
+            Path: /aforo
+            Method: GET
+
+  GetEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.get_events.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue AforoPilotTableName
+      Events:
+        GetEvents:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AforoHttpApi
+            Path: /events
+            Method: GET
+
+  GetPeopleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.get_people.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue AforoPilotTableName
+      Events:
+        GetPeople:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AforoHttpApi
+            Path: /people
+            Method: GET
 
 Outputs:
   ApiUrl:
