@@ -61,7 +61,7 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 
 ### Task 6 — Endpoints de lectura
 - [x] **6.1** `feat(api): add get aforo handler` — Devuelve `{ currentOccupancy, lastUpdated }`.
-- [ ] **6.2** `feat(api): add get events handler with range filter` — Query params `from` y `to` opcionales (por defecto: hoy).
+- [x] **6.2** `feat(api): add get events handler with range filter` — Query params `from` y `to` opcionales (por defecto: hoy).
 - [ ] **6.3** `feat(api): add get people handler` — Lista de `{ personId, name, status, lastEventAt }`.
 - [ ] **6.4** `feat(infra): wire read routes and enable cors` — Rutas GET + CORS para el dominio de Amplify y `localhost`.
 - [ ] **6.5** `test(api): cover read handlers` — Respuestas con tabla vacía y con datos.
