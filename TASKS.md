@@ -68,7 +68,7 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 
 ### Task 7 — Despliegue completo
 - [x] **7.1** `feat(scripts): add fake event sender for manual testing` — `scripts/send_fake_events.py`: manda eventos de prueba al API desplegado. Lo usan `aforo-frontend` (task 6) y este mismo repo para probar sin cámaras.
-- [ ] **7.2** `docs: add api url and endpoints to readme` — URL base del API, endpoints y ejemplos `curl`. Esta URL la necesitan `aforo-vision` y `aforo-frontend`.
+- [x] **7.2** `docs: add api url and endpoints to readme` — URL base del API, endpoints y ejemplos `curl`. Esta URL la necesitan `aforo-vision` y `aforo-frontend`.
 - [ ] **7.3** (sin commit) `sam deploy` y probar los 4 endpoints con el script de 7.1.
 
 ---
