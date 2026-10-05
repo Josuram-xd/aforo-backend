@@ -8,6 +8,8 @@ requires-python = ">=3.14"
 # Dev-only tools go here; install both with: pip install -r src/requirements.txt --group dev
 [dependency-groups]
 dev = [
+    "boto3==1.43.108",  # provided by the Lambda runtime, but needed locally for moto
+    "moto[dynamodb]==5.2.3",
     "pytest==9.1.1",
     "ruff==0.16.9",
 ]
