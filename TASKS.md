@@ -64,7 +64,7 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 - [x] **6.2** `feat(api): add get events handler with range filter` — Query params `from` y `to` opcionales (por defecto: hoy).
 - [x] **6.3** `feat(api): add get people handler` — Lista de `{ personId, name, status, lastEventAt }`.
 - [x] **6.4** `feat(infra): wire read routes and enable cors` — Rutas GET + CORS para el dominio de Amplify y `localhost`.
-- [ ] **6.5** `test(api): cover read handlers` — Respuestas con tabla vacía y con datos.
+- [x] **6.5** `test(api): cover read handlers` — Respuestas con tabla vacía y con datos.
 
 ### Task 7 — Despliegue completo
 - [ ] **7.1** `feat(scripts): add fake event sender for manual testing` — `scripts/send_fake_events.py`: manda eventos de prueba al API desplegado. Lo usan `aforo-frontend` (task 6) y este mismo repo para probar sin cámaras.
