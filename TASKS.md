@@ -60,7 +60,7 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 - [x] **5.4** `test(api): cover post events happy path and duplicates` — Evento válido, inválido (400) y duplicado (no altera el aforo).
 
 ### Task 6 — Endpoints de lectura
-- [ ] **6.1** `feat(api): add get aforo handler` — Devuelve `{ currentOccupancy, lastUpdated }`.
+- [x] **6.1** `feat(api): add get aforo handler` — Devuelve `{ currentOccupancy, lastUpdated }`.
 - [ ] **6.2** `feat(api): add get events handler with range filter` — Query params `from` y `to` opcionales (por defecto: hoy).
 - [ ] **6.3** `feat(api): add get people handler` — Lista de `{ personId, name, status, lastEventAt }`.
 - [ ] **6.4** `feat(infra): wire read routes and enable cors` — Rutas GET + CORS para el dominio de Amplify y `localhost`.

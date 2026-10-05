@@ -194,11 +194,18 @@ def change_occupancy(delta: int) -> int:
     return int(response["Attributes"]["currentOccupancy"])
 
 
-def get_occupancy() -> int:
-    """Return the current occupancy, or 0 if the counter item does not exist yet."""
+def get_occupancy_with_timestamp() -> tuple[int, str | None]:
+    """Return (current occupancy, UTC time of the last change); (0, None) before any event."""
     item = (
         _table()
         .get_item(Key={"PK": _OCCUPANCY_PK, "SK": _OCCUPANCY_SK}, ConsistentRead=True)
         .get("Item")
     )
-    return int(item["currentOccupancy"]) if item else 0
+    if not item:
+        return 0, None
+    return int(item["currentOccupancy"]), item.get("lastUpdated")
+
+
+def get_occupancy() -> int:
+    """Return the current occupancy, or 0 if the counter item does not exist yet."""
+    return get_occupancy_with_timestamp()[0]
