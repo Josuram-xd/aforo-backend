@@ -51,7 +51,7 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 - [x] **4.2** `feat(db): add put event and query by time range` — `src/db/dynamo_client.py`: funciones `put_event(event)` y `query_events(from_ts, to_ts)`.
 - [x] **4.3** `feat(db): add update person status` — Función `update_person_status(person_id, direction, ts)` sobre `PERSON#<id>` / `PROFILE`.
 - [x] **4.4** `feat(db): add atomic occupancy counter` — Funciones `change_occupancy(delta)` y `get_occupancy()` sobre `AFORO` / `CURRENT`; nunca baja de 0.
-- [ ] **4.5** `test(db): cover dynamo client with moto` — Tests con `moto` (DynamoDB simulado, sin tocar AWS).
+- [x] **4.5** `test(db): cover dynamo client with moto` — Tests con `moto` (DynamoDB simulado, sin tocar AWS).
 
 ### Task 5 — Endpoint `POST /events`
 - [ ] **5.1** `feat(api): add post events handler` — `src/handlers/post_events.py`: valida con `AforoEvent`, guarda el evento, suma/resta el contador y, si hay `personId`, actualiza su estado.
