@@ -11,6 +11,14 @@ Parameters:
       https://main.d1234abcd.amplifyapp.com, sin barra final). El valor por defecto es un
       marcador que no coincide con ningun sitio real.
 
+  SharedSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    Description: >-
+      Secreto compartido que aforo-vision envia en el header X-Aforo-Secret de POST /events.
+      Sin valor por defecto: hay que pasarlo en cada despliegue.
+
 Globals:
   Function:
     Runtime: python3.14
@@ -62,6 +70,9 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: handlers.post_events.handler
+      Environment:
+        Variables:
+          EVENTS_SHARED_SECRET: !Ref SharedSecret
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !ImportValue AforoPilotTableName

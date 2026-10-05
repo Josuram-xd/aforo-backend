@@ -69,14 +69,14 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 ### Task 7 — Despliegue completo
 - [x] **7.1** `feat(scripts): add fake event sender for manual testing` — `scripts/send_fake_events.py`: manda eventos de prueba al API desplegado. Lo usan `aforo-frontend` (task 6) y este mismo repo para probar sin cámaras.
 - [x] **7.2** `docs: add api url and endpoints to readme` — URL base del API, endpoints y ejemplos `curl`. Esta URL la necesitan `aforo-vision` y `aforo-frontend`.
-- [ ] **7.3** (sin commit) `sam deploy` y probar los 4 endpoints con el script de 7.1.
+- [x] **7.3** (sin commit) `sam deploy` y probar los 4 endpoints con el script de 7.1.
 
 ---
 
 ## Prioridad 2 — Importante
 
 ### Task 8 — Seguridad mínima
-- [ ] **8.1** `feat(api): validate shared secret header on post events` — Rechazar con 401 cualquier `POST /events` sin el header correcto (secreto como parámetro `NoEcho` de SAM). Después sigue con la task 9 del repo: `aforo-vision`.
+- [x] **8.1** `feat(api): validate shared secret header on post events` — Rechazar con 401 cualquier `POST /events` sin el header correcto (secreto como parámetro `NoEcho` de SAM). Después sigue con la task 9 del repo: `aforo-vision`.
 - [ ] **8.2** `feat(infra): add throttling limits to api stage` — Límite de peticiones por segundo para que nadie dispare costos.
 
 ### Task 9 — Observabilidad y retención

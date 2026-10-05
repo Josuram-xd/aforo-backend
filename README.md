@@ -7,11 +7,11 @@ La tabla de DynamoDB vive en el repo `aforo-db`. Más detalle en `PRD.md` y `ARC
 ## URL base
 
 ```
-<API_URL>
+https://y2bd1cj4s3.execute-api.us-east-1.amazonaws.com
 ```
 
-> Pendiente: se completa con el output `ApiUrl` después del primer `sam deploy` (task 7.3).
-> `aforo-vision` y `aforo-frontend` necesitan este valor. Sin barra final.
+> Es el output `ApiUrl` del stack `aforo-pilot-backend` (us-east-1). `aforo-vision` y
+> `aforo-frontend` necesitan este valor. Sin barra final.
 
 ## Endpoints
 
@@ -27,14 +27,15 @@ El formato del evento y los enums (`Direction`, `EventMethod`, `CameraId`) está
 de `ARCHITECTURE.md`. Los errores `400` traen `message` en español y, si el fallo es de
 validación, `invalidFields`.
 
-> Autenticación: por ahora las rutas están abiertas. El secreto compartido de `POST /events`
-> (task 8.1) y el login con Cognito en las rutas `GET` (task 11) aún no están implementados.
-> No conviene desplegar para uso real antes de esas tareas.
+> Autenticación: `POST /events` exige el header `X-Aforo-Secret` con el secreto compartido
+> (`401` si falta o es incorrecto). Las rutas `GET` siguen abiertas hasta que se implemente el
+> login con Cognito (task 11).
 
 ## Ejemplos con curl
 
 ```bash
-API_URL="<API_URL>"
+API_URL="https://y2bd1cj4s3.execute-api.us-east-1.amazonaws.com"
+SHARED_SECRET="<el secreto con el que desplegaste>"
 
 # Estado del API
 curl "$API_URL/health"
@@ -42,6 +43,7 @@ curl "$API_URL/health"
 # Registrar una entrada
 curl -X POST "$API_URL/events" \
   -H "Content-Type: application/json" \
+  -H "X-Aforo-Secret: $SHARED_SECRET" \
   -d '{
     "eventId": "0b6f1c9e-8a2e-4c55-9d0e-1f2a3b4c5d6e",
     "personId": null,
@@ -70,7 +72,7 @@ curl "$API_URL/people"
 `scripts/send_fake_events.py` manda eventos de prueba al API desplegado (solo biblioteca estándar):
 
 ```bash
-python scripts/send_fake_events.py "$API_URL" --count 20 --interval 2
+python scripts/send_fake_events.py "$API_URL" --count 20 --interval 2 --header "X-Aforo-Secret: $SHARED_SECRET"
 python scripts/send_fake_events.py "$API_URL" --person-id <uuid-del-roster> --person-name "Ana"
 python scripts/send_fake_events.py "$API_URL" --dry-run
 ```
@@ -94,9 +96,13 @@ Antes hay que desplegar la tabla desde `aforo-db` (este stack importa `AforoPilo
 ```bash
 sam validate --lint
 sam build
-sam deploy                        # muestra el changeset y pide confirmación
+sam deploy --parameter-overrides SharedSecret=<secreto-de-al-menos-16-caracteres>
+                                  # muestra el changeset y pide confirmación
 ```
 
-Parámetro `AmplifyOrigin`: dominio del dashboard permitido por CORS, por ejemplo
-`sam deploy --parameter-overrides AmplifyOrigin=https://main.xxxx.amplifyapp.com` (sin barra final).
+`SharedSecret` es obligatorio (mínimo 16 caracteres, no se muestra en la consola de
+CloudFormation). Guárdalo: `aforo-vision` debe enviarlo en el header `X-Aforo-Secret`.
+
+Parámetro `AmplifyOrigin`: dominio del dashboard permitido por CORS; se pasa en el mismo
+`--parameter-overrides`, por ejemplo `AmplifyOrigin=https://main.xxxx.amplifyapp.com` (sin barra final).
 `http://localhost:5173` y `http://localhost:3000` ya están permitidos.

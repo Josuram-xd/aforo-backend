@@ -4,7 +4,7 @@ import json
 import pytest
 
 from db import dynamo_client
-from handlers.post_events import handler
+from handlers.post_events import SECRET_HEADER, handler
 from tests.helpers import PERSON_ID, add_person, get_person
 
 VALID_PAYLOAD = {
@@ -20,8 +20,16 @@ VALID_PAYLOAD = {
 }
 
 
+SECRET = "secreto-de-prueba-123"
+
+
+@pytest.fixture(autouse=True)
+def shared_secret(monkeypatch):
+    monkeypatch.setenv("EVENTS_SHARED_SECRET", SECRET)
+
+
 def post(payload):
-    return handler({"body": json.dumps(payload)}, None)
+    return handler({"headers": {SECRET_HEADER: SECRET}, "body": json.dumps(payload)}, None)
 
 
 def body_of(response):
@@ -72,7 +80,9 @@ def test_event_with_person_updates_person_status(table):
 def test_base64_body_is_decoded(table):
     encoded = base64.b64encode(json.dumps(VALID_PAYLOAD).encode()).decode()
 
-    response = handler({"body": encoded, "isBase64Encoded": True}, None)
+    response = handler(
+        {"headers": {SECRET_HEADER: SECRET}, "body": encoded, "isBase64Encoded": True}, None
+    )
 
     assert response["statusCode"] == 201
 
@@ -107,7 +117,7 @@ def test_missing_field_returns_400(table):
 
 @pytest.mark.parametrize("event", [{}, {"body": None}, {"body": "{not json"}, {"body": "[]"}])
 def test_unusable_body_returns_400(table, event):
-    response = handler(event, None)
+    response = handler({"headers": {SECRET_HEADER: SECRET}, **event}, None)
 
     assert response["statusCode"] == 400
     assert table.scan()["Items"] == []
@@ -141,3 +151,31 @@ def test_duplicate_event_does_not_overwrite_person_status(table):
 
     assert get_person(table)["status"] == "OUT"
     assert dynamo_client.get_occupancy() == 0
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [None, {}, {SECRET_HEADER: ""}, {SECRET_HEADER: "otro-secreto"}, {SECRET_HEADER: SECRET + "x"}],
+)
+def test_missing_or_wrong_secret_returns_401_and_writes_nothing(table, headers):
+    response = handler({"headers": headers, "body": json.dumps(VALID_PAYLOAD)}, None)
+
+    assert response["statusCode"] == 401
+    assert table.scan()["Items"] == []
+    assert dynamo_client.get_occupancy() == 0
+
+
+def test_secret_is_checked_before_the_body(table):
+    response = handler({"headers": {}, "body": "{not json"}, None)
+
+    assert response["statusCode"] == 401
+
+
+def test_unconfigured_secret_fails_closed(table, monkeypatch):
+    monkeypatch.delenv("EVENTS_SHARED_SECRET")
+
+    # Even an empty header must not match an empty (missing) secret.
+    response = handler({"headers": {SECRET_HEADER: ""}, "body": json.dumps(VALID_PAYLOAD)}, None)
+
+    assert response["statusCode"] == 500
+    assert table.scan()["Items"] == []

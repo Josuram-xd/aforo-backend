@@ -1,13 +1,18 @@
 """POST /events: receives a resolved event from aforo-vision."""
 
 import base64
+import hmac
 import json
+import os
 from typing import Any
 
 from pydantic import ValidationError
 
 from db import dynamo_client
 from models.event import AforoEvent, Direction
+
+# Header aforo-vision must send with the shared secret (HTTP API lowercases header names).
+SECRET_HEADER = "x-aforo-secret"
 
 _OCCUPANCY_DELTA = {Direction.ENTRY: 1, Direction.EXIT: -1}
 
@@ -20,6 +25,11 @@ def _response(status_code: int, body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _is_authorized(event: dict[str, Any], secret: str) -> bool:
+    provided = (event.get("headers") or {}).get(SECRET_HEADER, "")
+    return hmac.compare_digest(provided.encode(), secret.encode())
+
+
 def _parse_body(event: dict[str, Any]) -> Any:
     body = event.get("body")
     if body is None:
@@ -30,6 +40,15 @@ def _parse_body(event: dict[str, Any]) -> Any:
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+    secret = os.environ.get("EVENTS_SHARED_SECRET", "")
+    if not secret:
+        # Fail closed: never accept events when the deployment forgot to configure the secret.
+        return _response(
+            500, {"message": "El servidor no tiene configurado el secreto compartido."}
+        )
+    if not _is_authorized(event, secret):
+        return _response(401, {"message": "Secreto compartido ausente o incorrecto."})
+
     try:
         aforo_event = AforoEvent.model_validate(_parse_body(event))
     except ValidationError as e:
