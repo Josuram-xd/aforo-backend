@@ -54,7 +54,7 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 - [x] **4.5** `test(db): cover dynamo client with moto` — Tests con `moto` (DynamoDB simulado, sin tocar AWS).
 
 ### Task 5 — Endpoint `POST /events`
-- [ ] **5.1** `feat(api): add post events handler` — `src/handlers/post_events.py`: valida con `AforoEvent`, guarda el evento, suma/resta el contador y, si hay `personId`, actualiza su estado.
+- [x] **5.1** `feat(api): add post events handler` — `src/handlers/post_events.py`: valida con `AforoEvent`, guarda el evento, suma/resta el contador y, si hay `personId`, actualiza su estado.
 - [ ] **5.2** `feat(api): make post events idempotent by event id` — `ConditionExpression attribute_not_exists` para que un reintento de la cola de `aforo-vision` no cuente dos veces.
 - [ ] **5.3** `feat(infra): wire post events route` — Ruta `POST /events` en `template.yaml`.
 - [ ] **5.4** `test(api): cover post events happy path and duplicates` — Evento válido, inválido (400) y duplicado (no altera el aforo).

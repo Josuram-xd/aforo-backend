@@ -185,7 +185,9 @@ def change_occupancy(delta: int) -> int:
 
 def get_occupancy() -> int:
     """Return the current occupancy, or 0 if the counter item does not exist yet."""
-    item = _table().get_item(
-        Key={"PK": _OCCUPANCY_PK, "SK": _OCCUPANCY_SK}, ConsistentRead=True
-    ).get("Item")
+    item = (
+        _table()
+        .get_item(Key={"PK": _OCCUPANCY_PK, "SK": _OCCUPANCY_SK}, ConsistentRead=True)
+        .get("Item")
+    )
     return int(item["currentOccupancy"]) if item else 0
