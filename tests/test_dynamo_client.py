@@ -1,41 +1,11 @@
 from datetime import UTC, datetime, timedelta, timezone
 from uuid import uuid4
 
-import boto3
 import pytest
-from moto import mock_aws
 
 from db import dynamo_client
 from models.event import AforoEvent, Direction
-
-TABLE_NAME = "AforoPilot"
-PERSON_ID = "7d1f7a52-3c1e-4a53-8a0e-5b9d2c3e4f10"
-
-
-@pytest.fixture
-def table(monkeypatch):
-    """Empty AforoPilot table (PK/SK strings) in moto; no real AWS is touched."""
-    monkeypatch.setenv("TABLE_NAME", TABLE_NAME)
-    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
-    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
-    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
-    with mock_aws():
-        resource = boto3.resource("dynamodb")
-        resource.create_table(
-            TableName=TABLE_NAME,
-            KeySchema=[
-                {"AttributeName": "PK", "KeyType": "HASH"},
-                {"AttributeName": "SK", "KeyType": "RANGE"},
-            ],
-            AttributeDefinitions=[
-                {"AttributeName": "PK", "AttributeType": "S"},
-                {"AttributeName": "SK", "AttributeType": "S"},
-            ],
-            BillingMode="PAY_PER_REQUEST",
-        )
-        dynamo_client._table.cache_clear()
-        yield resource.Table(TABLE_NAME)
-        dynamo_client._table.cache_clear()
+from tests.helpers import PERSON_ID, add_person, get_person
 
 
 def make_event(timestamp="2026-09-30T14:32:00Z", direction="ENTRY", **overrides):
@@ -53,14 +23,6 @@ def make_event(timestamp="2026-09-30T14:32:00Z", direction="ENTRY", **overrides)
             **overrides,
         }
     )
-
-
-def add_person(table, status="OUT"):
-    table.put_item(Item={"PK": f"PERSON#{PERSON_ID}", "SK": "PROFILE", "status": status})
-
-
-def get_person(table):
-    return table.get_item(Key={"PK": f"PERSON#{PERSON_ID}", "SK": "PROFILE"})["Item"]
 
 
 # --- put_event / query_events ---
