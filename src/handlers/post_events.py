@@ -40,7 +40,9 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     except ValueError:  # includes json.JSONDecodeError and UnicodeDecodeError
         return _response(400, {"message": "El cuerpo debe ser un JSON válido."})
 
-    dynamo_client.put_event(aforo_event)
+    if not dynamo_client.put_event(aforo_event):
+        # Retry of an event already processed: acknowledge it without touching the counter.
+        return _response(200, {"eventId": str(aforo_event.event_id), "duplicate": True})
     dynamo_client.change_occupancy(_OCCUPANCY_DELTA[aforo_event.direction])
     if aforo_event.person_id is not None:
         dynamo_client.update_person_status(

@@ -61,8 +61,17 @@ def _item_to_event(item: dict) -> AforoEvent:
     return AforoEvent.model_validate(data)
 
 
-def put_event(event: AforoEvent) -> None:
-    """Store an event in the partition of its UTC date."""
+def _is_condition_failure(error: ClientError) -> bool:
+    return error.response["Error"]["Code"] == "ConditionalCheckFailedException"
+
+
+def put_event(event: AforoEvent) -> bool:
+    """Store an event in the partition of its UTC date.
+
+    Returns False without writing when an event with the same eventId and timestamp is already
+    stored: a retry from aforo-vision's queue resends the same payload, so the caller can skip
+    the side effects (occupancy, person status) instead of counting it twice.
+    """
     ts = _to_utc(event.timestamp)
     item = event.model_dump(mode="json")
     item["timestamp"] = ts.isoformat().replace("+00:00", "Z")
@@ -70,7 +79,13 @@ def put_event(event: AforoEvent) -> None:
     item["confidence"] = Decimal(str(event.confidence))
     item["PK"] = _event_pk(ts.date())
     item["SK"] = f"{_sortable_timestamp(ts)}#{event.event_id}"
-    _table().put_item(Item=item)
+    try:
+        _table().put_item(Item=item, ConditionExpression="attribute_not_exists(PK)")
+    except ClientError as e:
+        if not _is_condition_failure(e):
+            raise
+        return False
+    return True
 
 
 def query_events(from_ts: datetime, to_ts: datetime) -> list[AforoEvent]:
@@ -125,14 +140,10 @@ def update_person_status(person_id: UUID | str, direction: Direction, ts: dateti
             },
         )
     except ClientError as e:
-        if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+        if not _is_condition_failure(e):
             raise
         return False
     return True
-
-
-def _is_condition_failure(error: ClientError) -> bool:
-    return error.response["Error"]["Code"] == "ConditionalCheckFailedException"
 
 
 def change_occupancy(delta: int) -> int:

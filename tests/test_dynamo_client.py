@@ -88,6 +88,15 @@ def test_put_event_normalizes_timezone_to_utc(table):
     assert table.scan()["Items"][0]["PK"] == "EVENT#2026-10-01"
 
 
+def test_put_event_is_idempotent_by_event_id(table):
+    event = make_event()
+
+    assert dynamo_client.put_event(event) is True
+    assert dynamo_client.put_event(event) is False
+
+    assert len(table.scan()["Items"]) == 1
+
+
 def test_query_events_returns_range_oldest_first_and_inclusive(table):
     early = make_event(timestamp="2026-09-30T14:00:00Z")
     middle = make_event(timestamp="2026-09-30T14:30:00Z")
