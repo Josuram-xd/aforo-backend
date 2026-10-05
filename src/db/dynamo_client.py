@@ -13,7 +13,7 @@ from functools import cache
 from uuid import UUID
 
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 from models.event import AforoEvent, Direction
@@ -59,6 +59,31 @@ def _item_to_event(item: dict) -> AforoEvent:
     data = {k: v for k, v in item.items() if k in _EVENT_FIELDS}
     data["confidence"] = float(data["confidence"])
     return AforoEvent.model_validate(data)
+
+
+def list_people() -> list[dict]:
+    """Return every enrolled person as {personId, name, status, lastEventAt}, sorted by name.
+
+    lastEventAt is None for people who have not crossed the door yet. Uses a Scan filtered to
+    PROFILE items, which is fine for a classroom roster (see aforo-db/ARCHITECTURE.md).
+    """
+    kwargs = {"FilterExpression": Attr("SK").eq("PROFILE")}
+    people = []
+    while True:
+        page = _table().scan(**kwargs)
+        people.extend(
+            {
+                "personId": item["personId"],
+                "name": item["name"],
+                "status": item["status"],
+                "lastEventAt": item.get("lastEventAt"),
+            }
+            for item in page["Items"]
+        )
+        if "LastEvaluatedKey" not in page:
+            break
+        kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+    return sorted(people, key=lambda person: person["name"].casefold())
 
 
 def _is_condition_failure(error: ClientError) -> bool:
