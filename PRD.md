@@ -61,3 +61,14 @@ Las rutas `GET` exigen un usuario con sesión iniciada (token de Cognito de los 
 - Cada evento enviado por `aforo-vision` aparece en `GET /events` en menos de un par de segundos.
 - El aforo mostrado en `GET /aforo` siempre coincide con (entradas - salidas) reales del día.
 - Cero eventos perdidos durante la sesión de prueba.
+
+## Versión 2 (octubre 2026)
+
+En la primera entrega el profe señaló que los datos se veían desde el navegador sin iniciar sesión (se podían robar) y que el API de AWS se podía explotar para generar costos. En v2:
+
+1. **Se apaga el API de AWS** cuando lo nuevo funcione; mientras tanto se le pone un límite de peticiones.
+2. **Los datos y el login pasan a Supabase:** el dashboard lee con la sesión del usuario y la base de datos decide qué puede ver cada rol. `aforo-vision` escribe con una llave de dispositivo que se puede revocar.
+3. **Este repo queda con la lógica de servidor que no cabe en la base de datos**, como Edge Functions: exportar eventos a CSV para el informe e invitar usuarios por correo.
+
+**No-objetivos v2:** usuarios o contraseñas propias (los maneja Supabase Auth); servidores o contenedores propios.
+**Métrica de éxito v2:** ninguna ruta de datos responde sin sesión; el stack de AWS del API queda eliminado.

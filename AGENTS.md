@@ -8,6 +8,8 @@ Este archivo le dice a los asistentes de IA cómo comportarse dentro de este rep
 
 Antes de proponer cambios, lee `PRD.md` y `ARCHITECTURE.md` (en inglés).
 
+> **Versión 2 en curso (oct 2026):** el API de AWS se retira; los datos, el login y la seguridad pasan a Supabase (`ARCHITECTURE.md` sección 9, `aforo-db` sección 7). En v2 este repo contiene las **Edge Functions** de Supabase (`supabase/functions/`). Las reglas marcadas **(v2)** aplican a ese trabajo; el resto aplica al API v1 mientras siga desplegado.
+
 ## Reglas de git (obligatorias, sin excepciones)
 
 1. **Ninguna IA puede hacer commit ni push.** Ningún asistente (Claude Code, Cursor, Copilot, Codex, Gemini, etc.) ejecuta `git commit`, `git push`, `git merge`, `git rebase`, `git tag` ni `git reset`, ni crea o fusiona PRs, ni por terminal ni por herramientas MCP/API de GitHub. El agente deja los cambios en el árbol de trabajo y, si ayuda, **propone** el mensaje de commit (formato de `TASKS.md`); el commit y el push los hace siempre una persona.
@@ -21,11 +23,11 @@ Antes de proponer cambios, lee `PRD.md` y `ARCHITECTURE.md` (en inglés).
 ## Reglas para el agente
 
 1. **No agregues Kafka, MQTT, ni ningún broker de mensajería.** Ya se decidió explícitamente (ver ADR-002 en `ARCHITECTURE.md`) que este backend no los necesita — un solo productor de eventos de baja frecuencia no lo justifica. Si el agente cree que hace falta, debe preguntar primero.
-2. **No agregues Docker ni contenedores.** La arquitectura es serverless (API Gateway + Lambda). No propongas mover esto a ECS/Fargate/EC2 sin que el usuario lo pida explícitamente.
+2. **No agregues Docker ni contenedores.** La arquitectura es serverless (API Gateway + Lambda). No propongas mover esto a ECS/Fargate/EC2 sin que el usuario lo pida explícitamente. **(v2)** Lo nuevo va como Edge Functions de Supabase, no como Lambdas nuevas.
 3. **Mantén el contrato de evento sincronizado.** El esquema del evento JSON y los enums (`Direction`, `EventMethod`, `CameraId`) están definidos en `ARCHITECTURE.md` de este repo. Si cambias algo ahí, dilo explícitamente: `aforo-vision` (quien produce eventos) y `aforo-frontend` (quien los consume) también deben actualizarse. No cambies el contrato de forma aislada.
 4. **No proceses video ni imágenes aquí.** Si una tarea pide algo relacionado con visión por computador, redirige esa lógica a `aforo-vision` — este repo solo recibe JSON ya resuelto.
-5. **Prioriza el nivel gratuito de AWS.** Cualquier recurso nuevo (Lambda, DynamoDB, API Gateway, Amplify) debe mantenerse dentro de los niveles "Always Free" o del crédito de cuenta nueva. Si una sugerencia va a generar costo, dilo de inmediato y de forma clara — no lo menciones solo al final de una propuesta grande. Recuerda: el presupuesto total del proyecto es de ~500.000 COP, y ya está mayormente asignado a las cámaras, no a la nube.
-6. **La autenticación de usuarios es la definida en ADR-005 (Amazon Cognito, grupos `viewer` y `dev`).** No agregues otro sistema de login, usuarios en DynamoDB, contraseñas propias ni roles nuevos sin que el usuario lo pida. `POST /events` sigue usando el secreto compartido (task 8.1), no Cognito.
+5. **Prioriza el nivel gratuito de AWS.** Cualquier recurso nuevo (Lambda, DynamoDB, API Gateway, Amplify) debe mantenerse dentro de los niveles "Always Free" o del crédito de cuenta nueva. Si una sugerencia va a generar costo, dilo de inmediato y de forma clara — no lo menciones solo al final de una propuesta grande. Recuerda: el presupuesto total del proyecto es de ~500.000 COP, y ya está mayormente asignado a las cámaras, no a la nube. **(v2)** Lo mismo con Supabase: plan Free (cuota de invocaciones de Edge Functions incluida).
+6. **(v2) La autenticación de usuarios es Supabase Auth** (correo, Google), con roles `admin`, `teacher` y `viewer` en la base de datos (`aforo-db`). Cognito (ADR-005) queda descartado. Cada Edge Function valida el JWT y el rol del usuario por sí misma; la `service_role` key solo existe como secreto de la función, nunca en el frontend ni en git. `aforo-vision` se autentica con su llave de dispositivo, no con una cuenta de usuario.
 7. **Verifica versiones antes de fijar una dependencia.** Antes de agregar algo a `requirements.txt`, confirma que soporta Python 3.14 y que es la versión estable más reciente.
 8. **Textos para humanos (mensajes de error visibles, documentación) van en español**; nombres de variables, funciones, clases, commits y comentarios de código van en inglés.
 

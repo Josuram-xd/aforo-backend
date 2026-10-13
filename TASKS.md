@@ -24,6 +24,19 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 
 **Hito fin de septiembre:** fase A completa → aquí, el `GET /health` desplegado en AWS (task 2).
 
+### Versión 2 (después de la primera entrega, octubre 2026)
+
+Retroalimentación del profe: pocas tablas, sin registro ni login, endpoints públicos, AWS sin protección contra abuso y un frontend muy básico. La v2 pasa los datos y el login a **Supabase** (PostgreSQL + Auth con Google + RLS + Realtime). Detalle en la sección "Version 2" de cada `ARCHITECTURE.md`.
+
+| Fase | aforo-db | aforo-backend | aforo-vision | aforo-frontend |
+|---|---|---|---|---|
+| F — Base v2 | 7 | 12.1-12.2 | — | 12 |
+| G — Login, seguridad e integración | 8 | 13 | 14 | 13 |
+| H — Producto | 9 | — | 15 (evaluar visión en la nube) | 14-15 |
+| I — Cierre | 10 | 12.3-12.4 | 15.3-15.6, 16 | 16 |
+
+Las tareas v1 que la v2 reemplaza quedan marcadas con ~~tachado~~ y una nota; no se borran para conservar el historial.
+
 ---
 
 ## Prioridad 1 — Crítico
@@ -77,25 +90,45 @@ API en la nube (API Gateway + Lambda en Python) que recibe eventos de `aforo-vis
 
 ### Task 8 — Seguridad mínima
 - [x] **8.1** `feat(api): validate shared secret header on post events` — Rechazar con 401 cualquier `POST /events` sin el header correcto (secreto como parámetro `NoEcho` de SAM). Después sigue con la task 9 del repo: `aforo-vision`.
-- [ ] **8.2** `feat(infra): add throttling limits to api stage` — Límite de peticiones por segundo para que nadie dispare costos.
+- [ ] ~~**8.2** `feat(infra): add throttling limits to api stage` — Límite de peticiones por segundo para que nadie dispare costos.~~ → se adelanta como task 12.2 (mitigación urgente mientras v1 siga en línea).
 
 ### Task 9 — Observabilidad y retención
-- [ ] **9.1** `feat(logging): add structured logs per request` — Log JSON con ruta, estado y `eventId`.
-- [ ] **9.2** `chore(infra): set log retention to 7 days` — Evita acumular logs (y costo) en CloudWatch.
-- [ ] **9.3** `feat(db): set expires at on event items` — Escribir `expiresAt` en cada evento para el borrado automático. Depende de: Seguir con la task 5 del repo: `aforo-db`.
+- [ ] ~~**9.1** `feat(logging): add structured logs per request` — Log JSON con ruta, estado y `eventId`.~~ → v1 se retira; en v2 los logs los da Supabase (task 13.3).
+- [ ] ~~**9.2** `chore(infra): set log retention to 7 days` — Evita acumular logs (y costo) en CloudWatch.~~ → v1 se retira (task 12.3).
+- [ ] ~~**9.3** `feat(db): set expires at on event items` — Escribir `expiresAt` en cada evento para el borrado automático. Depende de: Seguir con la task 5 del repo: `aforo-db`.~~ → reemplazada por `aforo-db` task 9.1 (pg_cron).
 
 ### Task 11 — Login de usuarios (Cognito)
 > Depende de: task 6 de este repo (rutas GET ya creadas).
 
-- [ ] **11.1** `feat(infra): add cognito user pool with viewer and dev groups` — En `template.yaml`: User Pool sin auto-registro (solo el admin crea cuentas), App Client público con PKCE (sin secreto), dominio de login administrado, grupos `viewer` y `dev`. Outputs `UserPoolId`, `UserPoolClientId`, `UserPoolDomain` (los usan `aforo-frontend` task 11 y `aforo-vision` task 12). Verificar antes los límites vigentes del nivel gratuito de Cognito.
-- [ ] **11.2** `feat(infra): protect read routes with jwt authorizer` — Authorizer JWT del HTTP API sobre `GET /events`, `GET /aforo`, `GET /people` (y `GET /events/export` si existe). `GET /health` queda pública y `POST /events` sigue con el secreto de 8.1. CORS: permitir el header `Authorization`.
-- [ ] **11.3** `feat(scripts): add create user script` — `scripts/create_user.py <correo> <viewer|dev>`: crea la cuenta con `admin_create_user` (contraseña temporal por correo) y la agrega al grupo.
-- [ ] **11.4** `test(api): reject read routes without token` — Verificar que el template declara el authorizer en las rutas GET y no en `/health` ni `POST /events`.
-- [ ] **11.5** (sin commit) `sam deploy`, crear un usuario `viewer` y uno `dev`, y probar con `curl` que sin token responde 401 y con token 200.
+- [ ] ~~**11.1** `feat(infra): add cognito user pool with viewer and dev groups` — En `template.yaml`: User Pool sin auto-registro (solo el admin crea cuentas), App Client público con PKCE (sin secreto), dominio de login administrado, grupos `viewer` y `dev`. Outputs `UserPoolId`, `UserPoolClientId`, `UserPoolDomain` (los usan `aforo-frontend` task 11 y `aforo-vision` task 12). Verificar antes los límites vigentes del nivel gratuito de Cognito.~~ → reemplazada por Supabase Auth (v2, `aforo-db` tasks 7.5 y 7.7, `aforo-frontend` task 13).
+- [ ] ~~**11.2** `feat(infra): protect read routes with jwt authorizer` — Authorizer JWT del HTTP API sobre `GET /events`, `GET /aforo`, `GET /people` (y `GET /events/export` si existe). `GET /health` queda pública y `POST /events` sigue con el secreto de 8.1. CORS: permitir el header `Authorization`.~~ → reemplazada por Supabase Auth (v2, `aforo-db` tasks 7.5 y 7.7, `aforo-frontend` task 13).
+- [ ] ~~**11.3** `feat(scripts): add create user script` — `scripts/create_user.py <correo> <viewer|dev>`: crea la cuenta con `admin_create_user` (contraseña temporal por correo) y la agrega al grupo.~~ → reemplazada por Supabase Auth (v2, `aforo-db` tasks 7.5 y 7.7, `aforo-frontend` task 13).
+- [ ] ~~**11.4** `test(api): reject read routes without token` — Verificar que el template declara el authorizer en las rutas GET y no en `/health` ni `POST /events`.~~ → reemplazada por Supabase Auth (v2, `aforo-db` tasks 7.5 y 7.7, `aforo-frontend` task 13).
+- [ ] ~~**11.5** (sin commit) `sam deploy`, crear un usuario `viewer` y uno `dev`, y probar con `curl` que sin token responde 401 y con token 200.~~ → reemplazada por Supabase Auth (v2, `aforo-db` tasks 7.5 y 7.7, `aforo-frontend` task 13).
 
 ---
 
 ## Prioridad 3 — Extras
 
 ### Task 10 — Exportar resultados
-- [ ] **10.1** `feat(api): add csv export of events` — `GET /events/export` devuelve los eventos del día en CSV para adjuntarlos al informe.
+- [ ] ~~**10.1** `feat(api): add csv export of events` — `GET /events/export` devuelve los eventos del día en CSV para adjuntarlos al informe.~~ → reemplazada por la task 13.1 (Edge Function).
+
+---
+
+## Versión 2 — Supabase reemplaza el API de AWS
+
+> Ver `ARCHITECTURE.md` sección 9. En v2 los datos, el login y la seguridad viven en Supabase (`aforo-db`): el frontend y `aforo-vision` hablan directo con Supabase. Este repo pasa a contener las **Edge Functions** (lógica de servidor que no cabe en SQL) y se encarga de apagar el API de AWS.
+
+### Task 12 — Mitigar y retirar el API de AWS **(Prioridad 1)**
+- [ ] **12.1** `docs: document v2 migration and deprecate aws api` — README y `ARCHITECTURE.md`: el API v1 queda en modo legado hasta la task 12.3.
+- [ ] **12.2** `feat(infra): add throttling limits to api stage` — **Urgente mientras v1 siga en línea:** límite de peticiones (por ejemplo 10 req/s, ráfaga 20) en el stage del HTTP API para que nadie dispare costos. Junto con esto, la alerta de presupuesto de `aforo-db` task 3.1 debe estar activa.
+- [ ] **12.3** (sin commit) Cuando `aforo-vision` task 14 y `aforo-frontend` task 16 funcionen contra Supabase: `sam delete` del stack `aforo-pilot-backend` (confirmar antes) y quitar las variables de Amplify que apuntan al API viejo.
+- [ ] **12.4** `chore: remove lambda handlers and sam template` — Quitar `src/handlers`, `src/db`, `template.yaml` y los tests de v1; dejar solo lo de la task 13.
+
+### Task 13 — Edge Functions **(Prioridad 2)**
+> Depende de: `aforo-db` task 7 (proyecto y esquema).
+
+- [ ] **13.1** `feat(functions): add events csv export function` — `supabase/functions/export-events`: valida el JWT del usuario y su rol (`teacher` o `admin`), recibe `from`/`to` y `classroomId`, devuelve CSV con nombre del estudiante, dirección, método y confianza. Registra `EXPORT` en `audit_log`.
+- [ ] **13.2** `feat(functions): add admin invite user function` — `supabase/functions/invite-user`: un `admin` invita por correo con un rol inicial (usa la `service_role` key solo dentro de la función, nunca en el navegador).
+- [ ] **13.3** `docs: add functions deploy and logs guide` — Cómo desplegar (`supabase functions deploy`), configurar secretos (`supabase secrets set`) y ver logs en el dashboard de Supabase.
+- [ ] **13.4** `test(functions): cover auth and role checks` — Sin token → 401, `viewer` → 403, `teacher` → 200 con CSV válido.
