@@ -41,6 +41,10 @@ Resources:
   AforoHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
+      # Cost guard (task 12.2): cap requests so nobody can run up the bill while v1 is online.
+      DefaultRouteSettings:
+        ThrottlingRateLimit: 10
+        ThrottlingBurstLimit: 20
       # The dashboard (Amplify or local dev server) calls the GET routes from the browser.
       CorsConfiguration:
         AllowOrigins:

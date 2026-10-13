@@ -4,6 +4,11 @@ API en la nube del piloto de aforo (API Gateway HTTP API + Lambda + DynamoDB). R
 de `aforo-vision`, mantiene el aforo actual y sirve los datos al dashboard `aforo-frontend`.
 La tabla de DynamoDB vive en el repo `aforo-db`. Más detalle en `PRD.md` y `ARCHITECTURE.md`.
 
+> **API legado (deprecado):** este API de AWS está en modo legado. En la versión 2 los datos, el
+> login y la seguridad pasan a Supabase (`ARCHITECTURE.md` sección 9) y este API se retira en la
+> task 12.3, cuando `aforo-vision` y `aforo-frontend` ya funcionen contra Supabase. No se le agregan
+> funciones nuevas. Mientras siga en línea, el stage tiene un límite de 10 req/s (ráfaga 20).
+
 ## URL base
 
 ```
