@@ -6,6 +6,11 @@
 
 > **Version 2 planned (section 9).** Sections 1-8 describe the AWS API deployed today (v1). In v2, data,
 > login and authorization move to Supabase (`aforo-db` section 7) and this AWS API is retired.
+>
+> **Deprecated (legacy mode):** the v1 AWS API stays online only until task 12.3 (`sam delete` of the
+> `aforo-pilot-backend` stack, once `aforo-vision` task 14 and `aforo-frontend` task 16 work against
+> Supabase). No new features go into it. Until then it is throttled to 10 req/s (burst 20) to cap cost
+> (task 12.2). Task 12.4 removes the Lambda handlers and the SAM template.
 
 ## 1. Purpose
 
