@@ -5,7 +5,7 @@ Funciones de Supabase (Deno/TypeScript) del proyecto `uezrriyikquncmcgwwzo`. Amb
 | Función | Rol | Descripción |
 |---|---|---|
 | `export-events` | `teacher`, `admin` | CSV de eventos de un salón en un rango de fechas. Registra `EXPORT` en `audit_log` (RPC `log_access`). |
-| `invite-user` | `admin` | Invita por correo y asigna el rol inicial. Usa `SUPABASE_SERVICE_ROLE_KEY` solo dentro de la función. |
+| `invite-user` | `admin` | Invita por correo a una cuenta nueva y asigna el rol inicial (si el correo ya existe responde 409; los cambios de rol van por `set_user_role`). Usa `SUPABASE_SERVICE_ROLE_KEY` solo dentro de la función. |
 
 Código compartido: `_shared/` (`cors.ts`, `auth.ts`, `csv.ts`). CORS solo permite `https://main.d2o7lrrjmkkq29.amplifyapp.com` y `http://localhost:5173`.
 

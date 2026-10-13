@@ -190,12 +190,14 @@ function inviteReq(body: unknown, token?: string) {
   });
 }
 
-function mockAdmin(inviteError: unknown = null) {
+function mockAdmin(inviteError: unknown = null, existingUser = false) {
   const writes: string[] = [];
+  const invites: unknown[][] = [];
   const admin = {
     auth: {
       admin: {
-        inviteUserByEmail: () =>
+        inviteUserByEmail: (...args: unknown[]) =>
+          invites.push(args) &&
           Promise.resolve(
             inviteError
               ? { data: null, error: inviteError }
@@ -205,7 +207,11 @@ function mockAdmin(inviteError: unknown = null) {
     },
     from: (table: string) => ({
       select: () => ({
-        eq: () => ({ single: () => Promise.resolve({ data: { id: 2 }, error: null }) }),
+        eq: () => ({
+          single: () => Promise.resolve({ data: { id: 2 }, error: null }),
+          maybeSingle: () =>
+            Promise.resolve({ data: existingUser ? { id: "old-user" } : null, error: null }),
+        }),
       }),
       upsert: () => {
         writes.push(`upsert ${table}`);
@@ -221,7 +227,7 @@ function mockAdmin(inviteError: unknown = null) {
       }),
     }),
   };
-  return { admin, writes };
+  return { admin, writes, invites };
 }
 
 Deno.test("invite-user: no token -> 401", async () => {
@@ -272,6 +278,18 @@ Deno.test("invite-user: admin -> 200 and role set", async () => {
   assertEquals(res.status, 200);
   assertEquals(await res.json(), { userId: "new-user", email: "new@b.co", role: "teacher" });
   assertEquals(writes, ["upsert user_roles", "delete user_roles"]);
+});
+
+Deno.test("invite-user: existing account -> 409, no invite, no role change", async () => {
+  const { client } = mockClient({ roles: ["admin"] });
+  const { admin, writes, invites } = mockAdmin(null, true);
+  const res = await inviteHandle(inviteReq({ email: "taken@b.co", role: "admin" }, "t"), {
+    createUserClient: () => client,
+    createAdminClient: () => admin,
+  });
+  assertEquals(res.status, 409);
+  assertEquals(invites.length, 0);
+  assertEquals(writes, []);
 });
 
 Deno.test("invite-user: invalid input -> 400", async () => {

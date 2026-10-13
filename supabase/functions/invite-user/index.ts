@@ -88,6 +88,19 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
       .from("roles").select("id").eq("code", role).single();
     if (roleError || !roleRow) throw new Error("role lookup");
 
+    // Only brand-new accounts. Supabase re-sends an invite to an existing but
+    // unconfirmed account (e.g. someone else signed up with this e-mail and set
+    // the password); granting a role to it would let that person in once the
+    // real owner accepts. Role changes for existing users go through set_user_role.
+    const { data: existing, error: existingError } = await admin
+      .from("profiles").select("id").eq("email", email).maybeSingle();
+    if (existingError) throw new Error("profile lookup");
+    if (existing) {
+      return jsonResponse(req, 409, {
+        error: "Ya existe un usuario con ese correo.",
+      });
+    }
+
     const { data: invited, error: inviteError } = await admin.auth.admin
       .inviteUserByEmail(email, { redirectTo: inviteRedirectTo(req) });
     if (inviteError) {
