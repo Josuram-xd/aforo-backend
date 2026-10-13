@@ -128,7 +128,7 @@ Las tareas v1 que la v2 reemplaza quedan marcadas con ~~tachado~~ y una nota; no
 ### Task 13 — Edge Functions **(Prioridad 2)**
 > Depende de: `aforo-db` task 7 (proyecto y esquema).
 
-- [ ] **13.1** `feat(functions): add events csv export function` — `supabase/functions/export-events`: valida el JWT del usuario y su rol (`teacher` o `admin`), recibe `from`/`to` y `classroomId`, devuelve CSV con nombre del estudiante, dirección, método y confianza. Registra `EXPORT` en `audit_log`.
+- [x] **13.1** `feat(functions): add events csv export function` — `supabase/functions/export-events`: valida el JWT del usuario y su rol (`teacher` o `admin`), recibe `from`/`to` y `classroomId`, devuelve CSV con nombre del estudiante, dirección, método y confianza. Registra `EXPORT` en `audit_log`.
 - [ ] **13.2** `feat(functions): add admin invite user function` — `supabase/functions/invite-user`: un `admin` invita por correo con un rol inicial (usa la `service_role` key solo dentro de la función, nunca en el navegador).
 - [ ] **13.3** `docs: add functions deploy and logs guide` — Cómo desplegar (`supabase functions deploy`), configurar secretos (`supabase secrets set`) y ver logs en el dashboard de Supabase.
 - [ ] **13.4** `test(functions): cover auth and role checks` — Sin token → 401, `viewer` → 403, `teacher` → 200 con CSV válido.
