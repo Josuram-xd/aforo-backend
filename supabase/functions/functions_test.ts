@@ -1,6 +1,6 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { handle as exportHandle } from "./export-events/index.ts";
-import { handle as inviteHandle } from "./invite-user/index.ts";
+import { handle as inviteHandle, inviteRedirectTo } from "./invite-user/index.ts";
 import { csvCell } from "./_shared/csv.ts";
 
 const CLASSROOM = "11111111-1111-4111-8111-111111111111";
@@ -8,7 +8,9 @@ const URL_BASE = "https://x.test/functions/v1/export-events";
 const range = "from=2026-10-12T00:00:00-05:00&to=2026-10-13T00:00:00-05:00";
 
 // deno-lint-ignore no-explicit-any
-function mockClient(opts: { user?: boolean; roles?: string[]; events?: any[] }) {
+function mockClient(
+  opts: { user?: boolean; roles?: string[]; events?: any[]; active?: boolean },
+) {
   const calls: { rpc: unknown[] } = { rpc: [] };
   const query = {
     // deno-lint-ignore no-explicit-any
@@ -39,6 +41,19 @@ function mockClient(opts: { user?: boolean; roles?: string[]; events?: any[] }) 
                 data: (opts.roles ?? []).map((code) => ({ roles: { code } })),
                 error: null,
               }),
+          }),
+        };
+      }
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { is_active: opts.active ?? true },
+                  error: null,
+                }),
+            }),
           }),
         };
       }
@@ -74,6 +89,15 @@ Deno.test("export-events: invalid token -> 401", async () => {
 
 Deno.test("export-events: viewer -> 403", async () => {
   const { client, calls } = mockClient({ roles: ["viewer"] });
+  const res = await exportHandle(exportReq("t"), {
+    createUserClient: () => client,
+  });
+  assertEquals(res.status, 403);
+  assertEquals(calls.rpc.length, 0);
+});
+
+Deno.test("export-events: inactive teacher -> 403, nothing audited", async () => {
+  const { client, calls } = mockClient({ roles: ["teacher"], active: false });
   const res = await exportHandle(exportReq("t"), {
     createUserClient: () => client,
   });
@@ -166,12 +190,14 @@ function inviteReq(body: unknown, token?: string) {
   });
 }
 
-function mockAdmin(inviteError: unknown = null) {
+function mockAdmin(inviteError: unknown = null, existingUser = false) {
   const writes: string[] = [];
+  const invites: unknown[][] = [];
   const admin = {
     auth: {
       admin: {
-        inviteUserByEmail: () =>
+        inviteUserByEmail: (...args: unknown[]) =>
+          invites.push(args) &&
           Promise.resolve(
             inviteError
               ? { data: null, error: inviteError }
@@ -181,7 +207,11 @@ function mockAdmin(inviteError: unknown = null) {
     },
     from: (table: string) => ({
       select: () => ({
-        eq: () => ({ single: () => Promise.resolve({ data: { id: 2 }, error: null }) }),
+        eq: () => ({
+          single: () => Promise.resolve({ data: { id: 2 }, error: null }),
+          maybeSingle: () =>
+            Promise.resolve({ data: existingUser ? { id: "old-user" } : null, error: null }),
+        }),
       }),
       upsert: () => {
         writes.push(`upsert ${table}`);
@@ -197,7 +227,7 @@ function mockAdmin(inviteError: unknown = null) {
       }),
     }),
   };
-  return { admin, writes };
+  return { admin, writes, invites };
 }
 
 Deno.test("invite-user: no token -> 401", async () => {
@@ -224,6 +254,20 @@ Deno.test("invite-user: teacher -> 403, service client untouched", async () => {
   assertEquals(adminCreated, false);
 });
 
+Deno.test("invite-user: inactive admin -> 403, service client untouched", async () => {
+  const { client } = mockClient({ roles: ["admin"], active: false });
+  let adminCreated = false;
+  const res = await inviteHandle(inviteReq({ email: "a@b.co", role: "admin" }, "t"), {
+    createUserClient: () => client,
+    createAdminClient: () => {
+      adminCreated = true;
+      return mockAdmin().admin;
+    },
+  });
+  assertEquals(res.status, 403);
+  assertEquals(adminCreated, false);
+});
+
 Deno.test("invite-user: admin -> 200 and role set", async () => {
   const { client } = mockClient({ roles: ["admin"] });
   const { admin, writes } = mockAdmin();
@@ -234,6 +278,18 @@ Deno.test("invite-user: admin -> 200 and role set", async () => {
   assertEquals(res.status, 200);
   assertEquals(await res.json(), { userId: "new-user", email: "new@b.co", role: "teacher" });
   assertEquals(writes, ["upsert user_roles", "delete user_roles"]);
+});
+
+Deno.test("invite-user: existing account -> 409, no invite, no role change", async () => {
+  const { client } = mockClient({ roles: ["admin"] });
+  const { admin, writes, invites } = mockAdmin(null, true);
+  const res = await inviteHandle(inviteReq({ email: "taken@b.co", role: "admin" }, "t"), {
+    createUserClient: () => client,
+    createAdminClient: () => admin,
+  });
+  assertEquals(res.status, 409);
+  assertEquals(invites.length, 0);
+  assertEquals(writes, []);
 });
 
 Deno.test("invite-user: invalid input -> 400", async () => {
@@ -253,4 +309,23 @@ Deno.test("invite-user: internal errors are not leaked", async () => {
   assertEquals(res.status, 500);
   const text = await res.text();
   assertEquals(text.includes("SECRET"), false);
+});
+
+Deno.test("invite-user: redirect defaults to an allowed frontend callback", () => {
+  Deno.env.delete("INVITE_REDIRECT_TO");
+  const url = "https://x.test/functions/v1/invite-user";
+  assertEquals(
+    inviteRedirectTo(new Request(url, { headers: { Origin: "http://localhost:5173" } })),
+    "http://localhost:5173/auth/callback",
+  );
+  assertEquals(
+    inviteRedirectTo(new Request(url, { headers: { Origin: "https://evil.test" } })),
+    "https://main.d2o7lrrjmkkq29.amplifyapp.com/auth/callback",
+  );
+  Deno.env.set("INVITE_REDIRECT_TO", "https://app.example.test/auth/callback");
+  try {
+    assertEquals(inviteRedirectTo(new Request(url)), "https://app.example.test/auth/callback");
+  } finally {
+    Deno.env.delete("INVITE_REDIRECT_TO");
+  }
 });
