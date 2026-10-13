@@ -1,8 +1,27 @@
 import { createClient } from "@supabase/supabase-js";
 import { authenticate, type DbClient, ROLES, type Role } from "../_shared/auth.ts";
-import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { ALLOWED_ORIGINS, corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Frontend route that finishes the invite (sets the session, asks for a password). */
+export const INVITE_CALLBACK_PATH = "/auth/callback";
+
+/**
+ * Where the invite e-mail link lands: INVITE_REDIRECT_TO if set, otherwise the
+ * caller's frontend (only if it is an allowed origin) or the production
+ * frontend, plus /auth/callback. Never an arbitrary caller-supplied URL. The
+ * result must be listed in Auth > URL Configuration > Redirect URLs.
+ */
+export function inviteRedirectTo(req: Request): string {
+  const configured = Deno.env.get("INVITE_REDIRECT_TO");
+  if (configured) return configured;
+  const origin = req.headers.get("Origin");
+  const base = origin && ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0];
+  return base + INVITE_CALLBACK_PATH;
+}
 
 export interface Deps {
   createUserClient: (authorization: string) => DbClient;
@@ -69,9 +88,8 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
       .from("roles").select("id").eq("code", role).single();
     if (roleError || !roleRow) throw new Error("role lookup");
 
-    const redirectTo = Deno.env.get("INVITE_REDIRECT_TO") || undefined;
     const { data: invited, error: inviteError } = await admin.auth.admin
-      .inviteUserByEmail(email, redirectTo ? { redirectTo } : undefined);
+      .inviteUserByEmail(email, { redirectTo: inviteRedirectTo(req) });
     if (inviteError) {
       if (inviteError.code === "email_exists" || inviteError.status === 422) {
         return jsonResponse(req, 409, {

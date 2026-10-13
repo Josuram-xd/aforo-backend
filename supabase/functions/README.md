@@ -19,7 +19,7 @@ Usar el JWT de la sesión del usuario (`Authorization: Bearer <access_token>`); 
 
 - `from`/`to`: ISO 8601 con zona horaria (ej. `2026-10-12T00:00:00-05:00`), `to > from`, rango máximo 31 días.
 - 200: `text/csv; charset=utf-8` con `Content-Disposition: attachment`. Columnas: `estudiante,direccion,metodo,confianza,fecha_hora_bogota` (hora de America/Bogota). Celdas que empiezan con `= + - @` se prefijan con `'`.
-- 400 parámetros inválidos, 401 sin token o token inválido, 403 rol insuficiente (`viewer`, cuenta inactiva), 500 error interno. Errores: `{"error": "mensaje en español"}`.
+- 400 parámetros inválidos, 401 sin token o token inválido, 403 rol insuficiente (`viewer`) o cuenta desactivada, 500 error interno. Errores: `{"error": "mensaje en español"}`.
 
 ### `invite-user`
 
@@ -40,14 +40,16 @@ supabase functions deploy invite-user --project-ref uezrriyikquncmcgwwzo
 
 ## Secretos
 
-`SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` ya existen en el entorno de las funciones; no hace falta configurarlos y nunca van en git ni en el frontend. Opcional, para que el enlace del correo de invitación apunte al frontend:
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` ya existen en el entorno de las funciones; no hace falta configurarlos y nunca van en git ni en el frontend.
+
+El enlace del correo de invitación lleva a `<frontend>/auth/callback`: el origen del dashboard que hizo la invitación si es uno de los permitidos por CORS, o si no `https://main.d2o7lrrjmkkq29.amplifyapp.com`. Para fijar otra URL (por ejemplo si cambia el dominio del frontend):
 
 ```bash
-supabase secrets set INVITE_REDIRECT_TO=https://main.d2o7lrrjmkkq29.amplifyapp.com --project-ref uezrriyikquncmcgwwzo
+supabase secrets set INVITE_REDIRECT_TO=https://main.d2o7lrrjmkkq29.amplifyapp.com/auth/callback --project-ref uezrriyikquncmcgwwzo
 supabase secrets list --project-ref uezrriyikquncmcgwwzo
 ```
 
-Esa URL debe estar en Authentication > URL Configuration > Redirect URLs.
+Estas URLs deben estar en Authentication > URL Configuration > Redirect URLs (si no, Supabase manda al Site URL): `https://main.d2o7lrrjmkkq29.amplifyapp.com/auth/callback` y `http://localhost:5173/auth/callback`.
 
 ## Logs
 

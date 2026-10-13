@@ -1,6 +1,6 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { handle as exportHandle } from "./export-events/index.ts";
-import { handle as inviteHandle } from "./invite-user/index.ts";
+import { handle as inviteHandle, inviteRedirectTo } from "./invite-user/index.ts";
 import { csvCell } from "./_shared/csv.ts";
 
 const CLASSROOM = "11111111-1111-4111-8111-111111111111";
@@ -291,4 +291,23 @@ Deno.test("invite-user: internal errors are not leaked", async () => {
   assertEquals(res.status, 500);
   const text = await res.text();
   assertEquals(text.includes("SECRET"), false);
+});
+
+Deno.test("invite-user: redirect defaults to an allowed frontend callback", () => {
+  Deno.env.delete("INVITE_REDIRECT_TO");
+  const url = "https://x.test/functions/v1/invite-user";
+  assertEquals(
+    inviteRedirectTo(new Request(url, { headers: { Origin: "http://localhost:5173" } })),
+    "http://localhost:5173/auth/callback",
+  );
+  assertEquals(
+    inviteRedirectTo(new Request(url, { headers: { Origin: "https://evil.test" } })),
+    "https://main.d2o7lrrjmkkq29.amplifyapp.com/auth/callback",
+  );
+  Deno.env.set("INVITE_REDIRECT_TO", "https://app.example.test/auth/callback");
+  try {
+    assertEquals(inviteRedirectTo(new Request(url)), "https://app.example.test/auth/callback");
+  } finally {
+    Deno.env.delete("INVITE_REDIRECT_TO");
+  }
 });
