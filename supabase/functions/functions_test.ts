@@ -8,7 +8,9 @@ const URL_BASE = "https://x.test/functions/v1/export-events";
 const range = "from=2026-10-12T00:00:00-05:00&to=2026-10-13T00:00:00-05:00";
 
 // deno-lint-ignore no-explicit-any
-function mockClient(opts: { user?: boolean; roles?: string[]; events?: any[] }) {
+function mockClient(
+  opts: { user?: boolean; roles?: string[]; events?: any[]; active?: boolean },
+) {
   const calls: { rpc: unknown[] } = { rpc: [] };
   const query = {
     // deno-lint-ignore no-explicit-any
@@ -39,6 +41,19 @@ function mockClient(opts: { user?: boolean; roles?: string[]; events?: any[] }) 
                 data: (opts.roles ?? []).map((code) => ({ roles: { code } })),
                 error: null,
               }),
+          }),
+        };
+      }
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { is_active: opts.active ?? true },
+                  error: null,
+                }),
+            }),
           }),
         };
       }
@@ -74,6 +89,15 @@ Deno.test("export-events: invalid token -> 401", async () => {
 
 Deno.test("export-events: viewer -> 403", async () => {
   const { client, calls } = mockClient({ roles: ["viewer"] });
+  const res = await exportHandle(exportReq("t"), {
+    createUserClient: () => client,
+  });
+  assertEquals(res.status, 403);
+  assertEquals(calls.rpc.length, 0);
+});
+
+Deno.test("export-events: inactive teacher -> 403, nothing audited", async () => {
+  const { client, calls } = mockClient({ roles: ["teacher"], active: false });
   const res = await exportHandle(exportReq("t"), {
     createUserClient: () => client,
   });
@@ -214,6 +238,20 @@ Deno.test("invite-user: teacher -> 403, service client untouched", async () => {
   const { client } = mockClient({ roles: ["teacher"] });
   let adminCreated = false;
   const res = await inviteHandle(inviteReq({ email: "a@b.co", role: "teacher" }, "t"), {
+    createUserClient: () => client,
+    createAdminClient: () => {
+      adminCreated = true;
+      return mockAdmin().admin;
+    },
+  });
+  assertEquals(res.status, 403);
+  assertEquals(adminCreated, false);
+});
+
+Deno.test("invite-user: inactive admin -> 403, service client untouched", async () => {
+  const { client } = mockClient({ roles: ["admin"], active: false });
+  let adminCreated = false;
+  const res = await inviteHandle(inviteReq({ email: "a@b.co", role: "admin" }, "t"), {
     createUserClient: () => client,
     createAdminClient: () => {
       adminCreated = true;

@@ -15,8 +15,9 @@ export interface AuthContext {
 
 /**
  * Authenticates the caller from the Authorization header and loads the roles
- * (read through RLS with the caller's own JWT). Returns a Response (401/403/500)
- * when the request must stop, otherwise the AuthContext.
+ * (read through RLS with the caller's own JWT). Inactive accounts get 403.
+ * Returns a Response (401/403/500) when the request must stop, otherwise the
+ * AuthContext.
  */
 export async function authenticate(
   req: Request,
@@ -46,6 +47,21 @@ export async function authenticate(
   if (rolesError) {
     console.error("roles lookup failed", rolesError.code ?? "");
     return jsonResponse(req, 500, { error: "Error interno." });
+  }
+
+  // A deactivated account keeps reading its own user_roles rows through RLS, so the
+  // role alone is not enough: require profiles.is_active as the database does.
+  const { data: profile, error: profileError } = await client
+    .from("profiles")
+    .select("is_active")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profileError) {
+    console.error("profile lookup failed", profileError.code ?? "");
+    return jsonResponse(req, 500, { error: "Error interno." });
+  }
+  if (profile?.is_active !== true) {
+    return jsonResponse(req, 403, { error: "Tu cuenta está desactivada." });
   }
 
   const roles: Role[] = [];
