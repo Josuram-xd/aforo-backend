@@ -1,15 +1,56 @@
 # aforo-backend
 
-API en la nube del piloto de aforo (API Gateway HTTP API + Lambda + DynamoDB). Recibe los eventos
-de `aforo-vision`, mantiene el aforo actual y sirve los datos al dashboard `aforo-frontend`.
-La tabla de DynamoDB vive en el repo `aforo-db`. Más detalle en `PRD.md` y `ARCHITECTURE.md`.
+Lógica de servidor del sistema de aforo que no cabe en SQL.
 
-> **API legado (deprecado):** este API de AWS está en modo legado. En la versión 2 los datos, el
-> login y la seguridad pasan a Supabase (`ARCHITECTURE.md` sección 9) y este API se retira en la
-> task 12.3, cuando `aforo-vision` y `aforo-frontend` ya funcionen contra Supabase. No se le agregan
-> funciones nuevas. Mientras siga en línea, el stage tiene un límite de 10 req/s (ráfaga 20).
+- **v2 (actual): Edge Functions de Supabase** (Deno/TypeScript) en `supabase/functions/`. En v2 el frontend y `aforo-vision` hablan directo con Supabase (`aforo-db`); este repo solo agrega lo que necesita una llave privada o generar archivos:
+  - `export-events`: descarga los eventos de un salón en CSV (`teacher` y `admin`).
+  - `invite-user`: un `admin` invita a una persona por correo con un rol inicial.
+- **v1 (legado, deprecado): API de AWS** (API Gateway HTTP API + Lambda + DynamoDB) en `src/` y `template.yaml`. Sigue en línea, con límite de 10 req/s (ráfaga 20), hasta la task 12.3; no se le agregan funciones nuevas y se borra en la task 12.4.
 
-## URL base
+Más detalle en `PRD.md`, `ARCHITECTURE.md` (sección 9 = v2) y `AGENTS.md`. El trabajo pendiente está en `TASKS.md`.
+
+## Estructura
+
+```
+aforo-backend/
+├── supabase/functions/           # v2
+│   ├── export-events/index.ts    # CSV de eventos (registra EXPORT en la auditoría)
+│   ├── invite-user/index.ts      # invitación por correo con rol inicial
+│   ├── _shared/                  # auth.ts (JWT + rol), cors.ts, csv.ts
+│   ├── functions_test.ts         # pruebas con Deno
+│   └── README.md                 # contrato, despliegue, secretos y logs de las funciones
+├── src/                          # v1 (legado): Lambdas
+│   ├── handlers/                 # health, post_events, get_events, get_aforo, get_people
+│   ├── models/event.py           # contrato del evento y validación
+│   └── db/dynamo_client.py       # acceso a la tabla AforoPilot
+├── tests/                        # v1: pytest con moto (no tocan AWS)
+├── scripts/send_fake_events.py   # v1: manda eventos de prueba al API de AWS
+├── template.yaml · samconfig.toml  # v1: infraestructura con AWS SAM
+└── PRD.md · ARCHITECTURE.md · AGENTS.md · TASKS.md
+```
+
+## v2 — Edge Functions
+
+Todo el detalle (contrato para el frontend, códigos de respuesta, despliegue, secretos y logs) está en [`supabase/functions/README.md`](supabase/functions/README.md). Resumen:
+
+```bash
+supabase login
+supabase link --project-ref <ref>
+supabase functions deploy export-events
+supabase functions deploy invite-user
+
+cd supabase/functions && deno test --allow-env     # pruebas
+```
+
+Ambas exigen el JWT del usuario y además revisan su rol. La `service_role` key solo existe dentro de las funciones; nunca en git ni en el navegador.
+
+---
+
+## Legado v1 — API de AWS
+
+> Se apaga en la task 12.3, cuando `aforo-vision` y `aforo-frontend` funcionen contra Supabase.
+
+### URL base
 
 ```
 https://y2bd1cj4s3.execute-api.us-east-1.amazonaws.com
@@ -18,7 +59,7 @@ https://y2bd1cj4s3.execute-api.us-east-1.amazonaws.com
 > Es el output `ApiUrl` del stack `aforo-pilot-backend` (us-east-1). `aforo-vision` y
 > `aforo-frontend` necesitan este valor. Sin barra final.
 
-## Endpoints
+### Endpoints
 
 | Ruta | Método | Descripción | Respuesta |
 |---|---|---|---|
@@ -33,10 +74,10 @@ de `ARCHITECTURE.md`. Los errores `400` traen `message` en español y, si el fal
 validación, `invalidFields`.
 
 > Autenticación: `POST /events` exige el header `X-Aforo-Secret` con el secreto compartido
-> (`401` si falta o es incorrecto). Las rutas `GET` siguen abiertas hasta que se implemente el
-> login con Cognito (task 11).
+> (`401` si falta o es incorrecto). Las rutas `GET` siguen abiertas: el login con Cognito (task 11)
+> se descartó porque en v2 el login es Supabase Auth, y este API se retira en vez de protegerlo.
 
-## Ejemplos con curl
+### Ejemplos con curl
 
 ```bash
 API_URL="https://y2bd1cj4s3.execute-api.us-east-1.amazonaws.com"
@@ -72,7 +113,7 @@ curl "$API_URL/events?from=2026-09-30T00:00:00Z&to=2026-09-30T23:59:59Z"
 curl "$API_URL/people"
 ```
 
-## Probar sin cámaras
+### Probar sin cámaras
 
 `scripts/send_fake_events.py` manda eventos de prueba al API desplegado (solo biblioteca estándar):
 
@@ -82,7 +123,7 @@ python scripts/send_fake_events.py "$API_URL" --person-id <uuid-del-roster> --pe
 python scripts/send_fake_events.py "$API_URL" --dry-run
 ```
 
-## Desarrollo
+### Desarrollo
 
 Requiere Python 3.14 (el runtime de Lambda). Desde la raíz del repo:
 
@@ -94,7 +135,7 @@ python -m pytest                  # tests con moto, no tocan AWS
 ruff check . && ruff format --check .
 ```
 
-## Despliegue
+### Despliegue
 
 Antes hay que desplegar la tabla desde `aforo-db` (este stack importa `AforoPilotTableName`).
 
