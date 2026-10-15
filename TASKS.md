@@ -122,7 +122,7 @@ Las tareas v1 que la v2 reemplaza quedan marcadas con ~~tachado~~ y una nota; no
 ### Task 12 — Mitigar y retirar el API de AWS **(Prioridad 1)**
 - [x] **12.1** `docs: document v2 migration and deprecate aws api` — README y `ARCHITECTURE.md`: el API v1 queda en modo legado hasta la task 12.3.
 - [x] **12.2** `feat(infra): add throttling limits to api stage` — **Urgente mientras v1 siga en línea:** límite de peticiones (por ejemplo 10 req/s, ráfaga 20) en el stage del HTTP API para que nadie dispare costos. Junto con esto, la alerta de presupuesto de `aforo-db` task 3.1 debe estar activa.
-- [ ] **12.3** (sin commit) Cuando `aforo-vision` task 14 y `aforo-frontend` task 16 funcionen contra Supabase: `sam delete` del stack `aforo-pilot-backend` (confirmar antes) y quitar las variables de Amplify que apuntan al API viejo.
+- [ ] **12.3** (sin commit) **URGENTE (revisión de seguridad 2026-10-15):** las rutas `GET` siguen abiertas y `GET /people` devuelve los nombres del roster a cualquiera que tenga la URL; el frontend v2 ya está en Amplify contra Supabase, así que no hay que esperar más. Cuando `aforo-vision` task 14 y `aforo-frontend` task 16 funcionen contra Supabase: `sam delete` del stack `aforo-pilot-backend` (confirmar antes) y quitar las variables de Amplify que apuntan al API viejo.
 - [ ] **12.4** `chore: remove lambda handlers and sam template` — Quitar `src/handlers`, `src/db`, `template.yaml` y los tests de v1; dejar solo lo de la task 13.
 
 ### Task 13 — Edge Functions **(Prioridad 2)**
