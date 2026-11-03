@@ -1,4 +1,5 @@
 import { jsonResponse } from "./cors.ts";
+import { allowRequest } from "./ratelimit.ts";
 
 export type Role = "admin" | "teacher" | "viewer";
 export const ROLES: readonly Role[] = ["admin", "teacher", "viewer"];
@@ -39,6 +40,11 @@ export async function authenticate(
     return jsonResponse(req, 401, { error: "Token inválido o vencido." });
   }
   const userId: string = userData.user.id;
+  if (!allowRequest(userId)) {
+    return jsonResponse(req, 429, {
+      error: "Demasiadas solicitudes. Espera un minuto e inténtalo de nuevo.",
+    });
+  }
 
   const { data: rows, error: rolesError } = await client
     .from("user_roles")

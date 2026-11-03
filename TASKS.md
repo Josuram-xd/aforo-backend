@@ -132,3 +132,6 @@ Las tareas v1 que la v2 reemplaza quedan marcadas con ~~tachado~~ y una nota; no
 - [x] **13.2** `feat(functions): add admin invite user function` — `supabase/functions/invite-user`: un `admin` invita por correo con un rol inicial (usa la `service_role` key solo dentro de la función, nunca en el navegador).
 - [x] **13.3** `docs: add functions deploy and logs guide` — Cómo desplegar (`supabase functions deploy`), configurar secretos (`supabase secrets set`) y ver logs en el dashboard de Supabase.
 - [x] **13.4** `test(functions): cover auth and role checks` — Sin token → 401, `viewer` → 403, `teacher` → 200 con CSV válido.
+
+### Task 14 — Límite de peticiones en las Edge Functions **(Prioridad 2)**
+- [x] **14.1** `feat(functions): add per-user rate limit` — `_shared/ratelimit.ts`: 30 peticiones por minuto por usuario autenticado (429 si se supera), aplicado dentro de `authenticate`, o sea en `export-events` e `invite-user`. Ventana en memoria de cada instancia (límite documentado con `shortcut:`).
