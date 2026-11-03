@@ -329,3 +329,14 @@ Deno.test("invite-user: redirect defaults to an allowed frontend callback", () =
     Deno.env.delete("INVITE_REDIRECT_TO");
   }
 });
+
+Deno.test("allowRequest limits a user per minute and resets after the window", async () => {
+  const { allowRequest, MAX_PER_WINDOW } = await import("./_shared/ratelimit.ts");
+  const t0 = 1_000_000;
+  for (let i = 0; i < MAX_PER_WINDOW; i++) {
+    if (!allowRequest("user-a", t0)) throw new Error(`blocked too early at ${i}`);
+  }
+  if (allowRequest("user-a", t0)) throw new Error("request over the limit was allowed");
+  if (!allowRequest("user-b", t0)) throw new Error("another user must not be limited");
+  if (!allowRequest("user-a", t0 + 60_001)) throw new Error("window did not reset");
+});
