@@ -46,6 +46,42 @@ Ambas exigen el JWT del usuario y además revisan su rol. La `service_role` key 
 
 ---
 
+## Estructuras de datos, GRASP y SOLID
+
+Dónde y cómo se aplican en v2 (`supabase/functions/`) los conceptos del curso de estructuras de datos, GRASP y SOLID. El código v1 (`src/`, DynamoDB) está en retiro y no se analiza aquí.
+
+### Estructuras de datos
+
+**Aplicada: tabla hash (`Map`) en el limitador de tasa.** [`_shared/ratelimit.ts`](supabase/functions/_shared/ratelimit.ts) guarda un `Map<string, { start, count }>` con clave = id del usuario. `authenticate()` en [`_shared/auth.ts`](supabase/functions/_shared/auth.ts) llama a `allowRequest(userId)` después de validar el JWT, así que el límite aplica a ambas funciones. Es una ventana fija de 60 s con `MAX_PER_WINDOW = 30`. Cuando el mapa tiene más de 1000 entradas, al abrir una ventana nueva se borran las entradas vencidas. El comentario `shortcut:` del archivo documenta el límite: el contador vive en memoria de cada instancia, no se comparte entre instancias y un cliente decidido puede superarlo; la mejora sería un contador en la base de datos.
+
+**Recorrido de arreglos en `csvRow`.** [`_shared/csv.ts`](supabase/functions/_shared/csv.ts) serializa cada fila con `values.map(csvCell)`; [`export-events/index.ts`](supabase/functions/export-events/index.ts) la usa para cada página de eventos. Es un arreglo, no una estructura propia.
+
+**Del curso que no se aplican.** No se forzaron a propósito; no hay un uso natural en este repo, porque las funciones son casi sin estado (el único estado en memoria es el `Map` del limitador) y los datos viven en Postgres.
+
+- **Pila:** no hay procesos que deban deshacerse en orden inverso.
+- **Cola:** el orden de las peticiones lo decide la plataforma, y el orden de los eventos lo da Postgres con `ORDER BY`.
+- **Listas enlazadas:** los resultados son páginas de la base (`range`), no nodos que se recorran en memoria.
+- **Árbol:** los índices de búsqueda los mantiene Postgres, no el código de las funciones.
+- **Cola de prioridad:** el repo no tiene trabajos con prioridad.
+
+### GRASP
+
+- **Bajo acoplamiento (inyección de dependencias).** [`export-events/index.ts`](supabase/functions/export-events/index.ts) e [`invite-user/index.ts`](supabase/functions/invite-user/index.ts) declaran `interface Deps`, un `defaultDeps` con los clientes reales de Supabase y `handle(req, deps)`. [`functions_test.ts`](supabase/functions/functions_test.ts) pasa mocks (por ejemplo `createUserClient: () => client`), así que las pruebas no hacen llamadas de red.
+- **Alta cohesión.** `_shared/` tiene módulos con propósitos acotados: `cors.ts` (CORS y respuestas JSON), `auth.ts` (JWT, límite de tasa, roles y cuenta activa), `ratelimit.ts` (límite por usuario) y `csv.ts` (CSV y formato de fecha). Las funciones usan esos módulos y se limitan a su lógica de endpoint: validación, consulta y respuesta.
+- **Fabricación pura.** `csvCell`, `csvRow` (en `csv.ts`) y `allowRequest` (en `ratelimit.ts`) son piezas artificiales que no representan un concepto del dominio (estudiante, aula, evento): reciben valores y claves genéricas. Pero `allowRequest` guarda estado en el `Map`, y `formatBogota` fija la zona `America/Bogota`, así que `csv.ts` mezcla utilidades genéricas con una específica del proyecto.
+
+### SOLID
+
+- **S (responsabilidad única).** Cada módulo de `_shared/` tiene un propósito acotado. `auth.ts` es el más amplio (JWT, límite de tasa, roles y cuenta activa) y es el candidato a dividirse si crece. Cada función hace una tarea: `export-events` exporta y `invite-user` invita.
+- **O (abierto/cerrado).** Visible en parte: `authenticate(req, createUserClient, allowedRoles)` recibe los roles permitidos como parámetro, así que una función nueva reutiliza la autenticación sin modificar `auth.ts`.
+- **L (sustitución de Liskov).** No se ve de forma verificable: `DbClient` es `any`, así que el compilador no comprueba que un mock cumpla el contrato del cliente real.
+- **I (segregación de interfaces).** Visible en parte: cada función declara solo lo que usa. `export-events` tiene solo `createUserClient`; `invite-user` agrega `createAdminClient`, que `export-events` no recibe.
+- **D (inversión de dependencias).** `handle` depende de la interfaz `Deps`, no de `createClient`. `createClient` solo se llama en `defaultDeps`, en el punto de entrada.
+
+El material del curso está en la carpeta «Estructura de datos» del curso.
+
+---
+
 ## Legado v1 — API de AWS
 
 > Se apaga en la task 12.3, cuando `aforo-vision` y `aforo-frontend` funcionen contra Supabase.
