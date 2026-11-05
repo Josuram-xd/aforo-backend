@@ -66,19 +66,19 @@ Dónde y cómo se aplican en v2 (`supabase/functions/`) los conceptos del curso 
 
 ### GRASP
 
-- **Bajo acoplamiento e indirección (inyección de dependencias).** [`export-events/index.ts`](supabase/functions/export-events/index.ts) e [`invite-user/index.ts`](supabase/functions/invite-user/index.ts) declaran `interface Deps`, un `defaultDeps` con los clientes reales de Supabase y `handle(req, deps)`. [`functions_test.ts`](supabase/functions/functions_test.ts) pasa mocks (por ejemplo `createUserClient: () => client`), así que las pruebas no hacen llamadas de red.
-- **Alta cohesión.** `_shared/` tiene un módulo por responsabilidad: `cors.ts` (CORS y respuestas JSON), `auth.ts` (JWT y roles), `ratelimit.ts` (límite por usuario) y `csv.ts` (CSV y formato de fecha). Las funciones solo los componen.
-- **Fabricación pura.** `csvCell`, `csvRow` (en `csv.ts`) y `allowRequest` (en `ratelimit.ts`) no conocen el dominio: reciben valores y claves genéricas. Excepción: `formatBogota` en `csv.ts` fija la zona `America/Bogota`, así que ese archivo no es puro del todo.
+- **Bajo acoplamiento (inyección de dependencias).** [`export-events/index.ts`](supabase/functions/export-events/index.ts) e [`invite-user/index.ts`](supabase/functions/invite-user/index.ts) declaran `interface Deps`, un `defaultDeps` con los clientes reales de Supabase y `handle(req, deps)`. [`functions_test.ts`](supabase/functions/functions_test.ts) pasa mocks (por ejemplo `createUserClient: () => client`), así que las pruebas no hacen llamadas de red.
+- **Alta cohesión.** `_shared/` tiene módulos con propósitos acotados: `cors.ts` (CORS y respuestas JSON), `auth.ts` (JWT, límite de tasa, roles y cuenta activa), `ratelimit.ts` (límite por usuario) y `csv.ts` (CSV y formato de fecha). Las funciones usan esos módulos y se limitan a su lógica de endpoint: validación, consulta y respuesta.
+- **Fabricación pura.** `csvCell`, `csvRow` (en `csv.ts`) y `allowRequest` (en `ratelimit.ts`) son piezas artificiales que no representan un concepto del dominio (estudiante, aula, evento): reciben valores y claves genéricas. Pero `allowRequest` guarda estado en el `Map`, y `formatBogota` fija la zona `America/Bogota`, así que `csv.ts` mezcla utilidades genéricas con una específica del proyecto.
 
 ### SOLID
 
-- **S (responsabilidad única).** Cada módulo de `_shared/` tiene una sola razón para cambiar. Cada función hace una tarea: `export-events` exporta y `invite-user` invita.
+- **S (responsabilidad única).** Cada módulo de `_shared/` tiene un propósito acotado. `auth.ts` es el más amplio (JWT, límite de tasa, roles y cuenta activa) y es el candidato a dividirse si crece. Cada función hace una tarea: `export-events` exporta y `invite-user` invita.
 - **O (abierto/cerrado).** Visible en parte: `authenticate(req, createUserClient, allowedRoles)` recibe los roles permitidos como parámetro, así que una función nueva reutiliza la autenticación sin modificar `auth.ts`.
 - **L (sustitución de Liskov).** No se ve de forma verificable: `DbClient` es `any`, así que el compilador no comprueba que un mock cumpla el contrato del cliente real.
 - **I (segregación de interfaces).** Visible en parte: cada función declara solo lo que usa. `export-events` tiene solo `createUserClient`; `invite-user` agrega `createAdminClient`, que `export-events` no recibe.
 - **D (inversión de dependencias).** `handle` depende de la interfaz `Deps`, no de `createClient`. `createClient` solo se llama en `defaultDeps`, en el punto de entrada.
 
-El material del curso está en `C:\Users\amand\Documents\Estructura de datos`.
+El material del curso está en la carpeta «Estructura de datos» del curso.
 
 ---
 
