@@ -1,50 +1,33 @@
 # Architecture — aforo-backend
 
 **Repository:** `aforo-backend`
-**Last updated:** October 8, 2026
-**Scope:** One-day pilot, single classroom door.
+**Last updated:** November 19, 2026
+**Scope:** entry/exit control of the students of one course (live test course: code `TEST`) and classroom occupancy.
 
-> **Version 2 planned (section 9).** Sections 1-8 describe the AWS API deployed today (v1). In v2, data,
-> login and authorization move to Supabase (`aforo-db` section 7) and this AWS API is retired.
->
-> **Deprecated (legacy mode):** the v1 AWS API stays online only until task 12.3 (`sam delete` of the
-> `aforo-pilot-backend` stack, once `aforo-vision` task 14 and `aforo-frontend` task 16 work against
-> Supabase). No new features go into it. Until then it is throttled to 10 req/s (burst 20) to cap cost
-> (task 12.2). Task 12.4 removes the Lambda handlers and the SAM template.
+> **Version 3 (current): Python on Lambda (ADR-007).** The backend is one Python Lambda behind an API Gateway
+> HTTP API that reads Supabase over REST. Sections 1, 2, 5, 6 and 7 describe it. Sections 3 (ADR-001 to
+> ADR-006) and 9 are kept as history: the v1 DynamoDB Lambdas and the Supabase Edge Functions (Deno/TypeScript)
+> were removed from this repo.
 
 ## 1. Purpose
 
-`aforo-backend` is the cloud API layer. It receives resolved events from `aforo-vision` (running locally on Josuram's laptop), persists them, computes the current occupancy, and serves everything `aforo-frontend` needs to render the live dashboard.
+`aforo-backend` is the server-side layer that does not fit in SQL or in the browser: the ordered course roster, the entry/exit report of a class session, CSV export and user invitations. Events are still written by `aforo-vision` straight into Supabase (`rpc/ingest_event`); this repo only reads them (and uses the service-role key for invitations).
 
-It contains **no** computer-vision code and **no** video handling — that all lives in `aforo-vision`. This repo is API-only.
+It contains **no** computer-vision code and **no** video handling. It is Python only (zero TypeScript).
 
 ## 2. High-level architecture
 
 ```
-┌───────────────┐      HTTPS       ┌──────────────────┐
-│  aforo-vision  │ ───────────────▶│   API Gateway     │
-│ (laptop, local)│   POST /events   └────────┬──────────┘
-└───────────────┘                            ▼
-                                     ┌──────────────────┐
-                                     │  Lambda (Python)  │
-                                     │  - handlers per    │
-                                     │    endpoint         │
-                                     └────────┬──────────┘
-                                              ▼
-                                     ┌──────────────────┐
-                                     │    DynamoDB        │
-                                     │  (aforo-db repo)   │
-                                     └────────▲──────────┘
-                                              │
-┌───────────────┐      HTTPS                 │
-│ aforo-frontend │ ◀──────────────────────────┘
-│ (AWS Amplify)  │   GET /events, /aforo, /people
-└───────────────┘
+┌────────────────┐  HTTPS + Supabase access token  ┌───────────────────┐   REST (urllib)   ┌──────────────────┐
+│ aforo-frontend │ ───────────────────────────────▶│ API Gateway (HTTP)│ ─────────────────▶│ Supabase          │
+│ (AWS Amplify)  │ ◀───────────────────────────────│  └─ Lambda app.py │ ◀─────────────────│  Auth + PostgREST │
+└────────────────┘                                  └───────────────────┘   user token (RLS) │  (aforo-db)       │
+                                                                                            └──────────────────┘
 ```
 
-- **API Gateway**: single HTTP API with 4 routes (`POST /events`, `GET /events`, `GET /aforo`, `GET /people`).
-- **Lambda (Python)**: one function per route (or a single function with internal routing — implementation detail, either is fine at this scale).
-- **DynamoDB**: single table, defined and provisioned in the sibling `aforo-db` repository (this repo only reads/writes to it via the AWS SDK; it does not define the table).
+- **One Lambda** (`src/app.py`, Python 3.13, stdlib only) receives every HTTP API v2 event, answers CORS, routes by method and path, authenticates and calls the route function.
+- **Auth**: the bearer token is validated with `GET /auth/v1/user`; roles are read from `user_roles` with the same token, so RLS applies. Only `POST /invite-user` uses the service-role key.
+- **Data structures** (`src/structures/`): own implementations of a singly and doubly linked list, queue, stack and binary search tree, used by the roster and session report routes (see README).
 
 ## 3. Architecture Decision Records
 
@@ -94,46 +77,38 @@ This is the canonical definition — `aforo-vision` (producer) and `aforo-fronte
 
 ## 5. REST API
 
-| Route | Method | Request | Response |
+| Route | Method | Roles | Response |
 |---|---|---|---|
-| `/events` | `POST` | Event JSON (above) | `201 Created` |
-| `/events` | `GET` | Query params: `from`, `to` (ISO timestamps, optional) | List of events |
-| `/aforo` | `GET` | — | `{ "currentOccupancy": number, "lastUpdated": timestamp }` |
-| `/people` | `GET` | — | List of `{ personId, name, status: "IN" \| "OUT", lastEventAt }` |
+| `/health` | `GET` | public | `{"status": "ok"}` |
+| `/courses/{courseId}/roster?q=` | `GET` | admin, teacher, viewer | `{courseId, structure: "binary_search_tree", height, size, students[]}` sorted by name; `q` = name prefix |
+| `/sessions/{sessionId}/report?cursor=&dir=&limit=` | `GET` | admin, teacher, viewer | `{session, arrivalOrder, insideNow, anomalies, lastEntries, peak, timeline}` |
+| `/export-events` | `GET`/`POST` | admin, teacher | CSV (`from`, `to`, `classroomId`) |
+| `/invite-user` | `POST` | admin | `{userId, email, role}` |
 
-**Auth**: every `GET` route requires `Authorization: Bearer <Cognito access token>` from a user in group `viewer` or `dev` (otherwise `401`). `POST /events` requires the shared-secret header instead. `GET /health` stays public.
+Errors are JSON `{"error": "<Spanish message>"}`. CORS echoes the `Origin` only if it is in `AllowedOrigins`.
 
 ## 6. Tech stack
 
-| Layer | Choice | Version (verified Sept 2026) |
-|---|---|---|
-| Language | Python | 3.14.7 |
-| Compute | AWS Lambda | Python 3.14 runtime |
-| API | AWS API Gateway (HTTP API) | — |
-| Database | AWS DynamoDB | — (see `aforo-db`) |
-| IaC / deploy | AWS SAM or Terraform (implementation choice) | latest |
+| Layer | Choice |
+|---|---|
+| Language | Python 3.13 (stdlib only at runtime) |
+| Compute | AWS Lambda (arm64) |
+| API | API Gateway HTTP API (payload v2), `ANY /{proxy+}` |
+| Data / auth | Supabase (PostgREST + Auth), schema in `aforo-db` |
+| IaC / deploy | AWS SAM, stack `aforo-backend-py` |
+| Dev tools | pytest, ruff |
 
 ## 7. Repository structure
 
 ```
 aforo-backend/
-├── ARCHITECTURE.md
-├── AGENTS.md
-├── PRD.md
-├── README.md
-├── requirements.txt
-├── template.yaml              # AWS SAM template (API Gateway + Lambda)
 ├── src/
-│   ├── handlers/
-│   │   ├── post_events.py
-│   │   ├── get_events.py
-│   │   ├── get_aforo.py
-│   │   └── get_people.py
-│   ├── models/
-│   │   └── event.py           # shared enums + event schema (Pydantic)
-│   └── db/
-│       └── dynamo_client.py
-└── tests/
+│   ├── app.py  auth.py  http_utils.py
+│   ├── routes/        # health, roster, session_report, export_events, invite_user
+│   ├── services/      # supabase_client.py (urllib, injectable transport)
+│   └── structures/    # singly_linked_list, queue, stack, doubly_linked_list, binary_search_tree
+├── tests/
+└── template.yaml · samconfig.toml
 ```
 
 ## 8. Cost notes
@@ -180,11 +155,12 @@ Unchanged: the JSON event of section 4 is what `aforo-vision` sends inside `{"p_
 **Why**: the requirements added after the review (registration, Google login, per-role access, audit, live updates, ~13 relational tables) are built into Supabase; building them on AWS would need Cognito + RDS (RDS is not free) + custom authorization in every Lambda + a WebSocket API. Supabase's Free plan covers this project's volume at no cost.
 **Trade-off**: the project is no longer AWS-only (Amplify still hosts the frontend). ADR-002 (no broker) still holds.
 
-### 9.4 Edge Functions
+### 9.4 Edge Functions (removed)
 
-| Function | Who | What |
-|---|---|---|
-| `export-events` | `teacher`, `admin` | CSV of events in a date range for one classroom; logs `EXPORT` in `audit_log` |
-| `invite-user` | `admin` | Invites a user by email with an initial role; the service-role key is only available inside the function |
+`export-events` and `invite-user` were Supabase Edge Functions (Deno/TypeScript). They were ported to Python routes with the same contract (ADR-007).
 
-Each function verifies the caller's JWT and role itself; secrets are set with `supabase secrets set` and never committed.
+### ADR-007: Backend moves from Supabase Edge Functions (Deno/TS) to Python on Lambda
+**Decision**: Supersedes the Edge Function part of ADR-006. Server-side logic is a single Python Lambda behind an HTTP API, deployed with SAM as the new stack `aforo-backend-py` (the old `aforo-pilot-backend` stack is untouched). Scope: entry/exit of the students of one course. Supabase stays the database and identity provider.
+**Why**: the project is graded on Python data-structure work and the team works in Python; the new endpoints (roster, session report) are naturally written with linked lists, queue, stack and a binary search tree. One language also removes the Deno toolchain. Lambda stays inside the AWS free tier at pilot volume.
+**Trade-offs**: the per-user rate limit of the Edge Functions was not ported (API Gateway throttling caps total traffic instead); reads use the caller's token, so RLS remains the authorization layer, and the roster tree is not self-balancing (documented shortcut).
+**Fix while porting**: if `invite-user` fails after creating the auth account, it deletes that account so the admin can retry instead of being stuck with a half-created viewer.
