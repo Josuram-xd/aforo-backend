@@ -15,7 +15,7 @@ from typing import Any
 
 from auth import AuthContext, authenticate
 from http_utils import HttpError, Request, Response, cors_headers, error_response
-from routes import health, roster
+from routes import health, roster, session_report
 from services.supabase_client import SupabaseClient, SupabaseError
 
 logger = logging.getLogger()
@@ -50,6 +50,12 @@ class Route:
 ROUTES: list[Route] = [
     Route("GET", "/health", health.handle, None),
     Route("GET", "/courses/{courseId}/roster", roster.handle, ("admin", "teacher", "viewer")),
+    Route(
+        "GET",
+        "/sessions/{sessionId}/report",
+        session_report.handle,
+        ("admin", "teacher", "viewer"),
+    ),
 ]
 
 
