@@ -11,7 +11,7 @@ class FakeTransport:
         self.calls = []
 
     def on(self, method, path, payload, status=200):
-        self.routes[(method, path)] = (status, payload)
+        self.routes[(method, path)] = payload if callable(payload) else (status, payload)
 
     def __call__(self, method, url, headers, body):
         path = url.split("supabase.test", 1)[1].split("?")[0]
