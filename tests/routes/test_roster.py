@@ -7,14 +7,14 @@ from tests.helpers import event, login
 COURSE = "11111111-1111-4111-8111-111111111111"
 
 
-def row(i, name, presence="OUT", active=True):
+def row(i, name, presence="OUT", enrollment="enrolled"):
     return {
         "students": {
             "id": i,
             "full_name": name,
             "student_code": f"C{i}",
             "presence": presence,
-            "is_active": active,
+            "enrollment_status": enrollment,
         }
     }
 
@@ -27,7 +27,7 @@ def roster(deps, transport, query=None, path=None):
         [
             row("1", "Zoe Díaz"),
             row("2", "ángela Ruiz", "IN"),
-            row("3", "Andres Lopez", active=False),
+            row("3", "Andres Lopez", enrollment="pending"),
             row("4", "angela Mora"),
         ],
     )
@@ -50,7 +50,7 @@ def test_roster_is_sorted_by_normalised_name(deps, transport):
         "ángela Ruiz",
         "Zoe Díaz",
     ]
-    assert body["students"][0]["enrollmentStatus"] == "inactive"
+    assert body["students"][0]["enrollmentStatus"] == "pending"
     assert body["students"][2]["presence"] == "IN"
 
 

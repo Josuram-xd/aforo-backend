@@ -40,7 +40,7 @@ def build_roster(rows: list[dict], prefix: str | None) -> tuple[list[dict], int,
                 "fullName": student["full_name"],
                 "studentCode": student.get("student_code"),
                 "presence": student.get("presence", "OUT"),
-                "enrollmentStatus": "active" if student.get("is_active", True) else "inactive",
+                "enrollmentStatus": student.get("enrollment_status", "none"),
             },
         )
     found = tree.prefix_range(name_key(prefix)) if prefix else tree.in_order()
@@ -58,7 +58,7 @@ def handle(req: Request, deps: Deps, auth: AuthContext | None) -> Response:
     rows = deps.client.select(
         "course_students",
         [
-            ("select", "students(id,full_name,student_code,presence,is_active)"),
+            ("select", "students(id,full_name,student_code,presence,enrollment_status)"),
             ("course_id", f"eq.{course_id}"),
             ("order", "student_id.asc"),
             ("limit", "5000"),
