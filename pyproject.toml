@@ -1,28 +1,26 @@
 [project]
 name = "aforo-backend"
 version = "0.1.0"
-description = "API en la nube del piloto de aforo (API Gateway + Lambda + DynamoDB)"
-requires-python = ">=3.14"
+description = "Python API for the Aforo pilot (API Gateway HTTP API + Lambda + Supabase)"
+requires-python = ">=3.13"
 
-# Lambda runtime dependencies live in src/requirements.txt (packaged by `sam build`).
+# The Lambda has no third-party runtime dependencies (stdlib only); see src/requirements.txt.
 # Dev-only tools go here; install both with: pip install -r src/requirements.txt --group dev
 [dependency-groups]
 dev = [
-    "boto3==1.43.108",  # provided by the Lambda runtime, but needed locally for moto
-    "moto[dynamodb]==5.2.3",
     "pytest==9.1.1",
     "ruff==0.16.9",
 ]
 
 [tool.pytest.ini_options]
-# src/ is the Lambda code root, so tests import `handlers.x`, `models.x`, `db.x`.
+# src/ is the Lambda code root, so tests import `structures.x`, `routes.x`, ...
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = ["-ra", "--strict-markers", "--strict-config"]
 xfail_strict = true
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py313"
 line-length = 100
 src = ["src", "tests"]
 extend-exclude = [".aws-sam"]
@@ -39,4 +37,4 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["handlers", "models", "db"]
+known-first-party = ["structures", "routes", "services", "app", "http_utils", "auth"]
