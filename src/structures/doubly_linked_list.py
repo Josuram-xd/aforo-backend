@@ -121,18 +121,18 @@ class DoublyLinkedList:
         items: list[Any] = []
         if direction == "next":
             node = self._head if anchor is None else anchor.next
+            start = node
             while node is not None and len(items) < limit:
                 items.append(node.value)
-                last = node
                 node = node.next
-            has_prev = (last.prev is not None) if items else (anchor is not None)
+            has_prev = (start.prev is not None) if items else (anchor is not None)
             return Window(items, has_prev, node is not None)
 
         node = self._tail if anchor is None else anchor.prev
+        start = node
         while node is not None and len(items) < limit:
             items.append(node.value)
-            first = node
             node = node.prev
         items.reverse()
-        has_next = (first.next is not None) if items else (anchor is not None)
+        has_next = (start.next is not None) if items else (anchor is not None)
         return Window(items, node is not None, has_next)
