@@ -15,6 +15,7 @@ from typing import Any
 
 from auth import AuthContext, authenticate
 from http_utils import HttpError, Request, Response, cors_headers, error_response
+from routes import health
 from services.supabase_client import SupabaseClient, SupabaseError
 
 logger = logging.getLogger()
@@ -46,7 +47,9 @@ class Route:
         return found.groupdict() if found else None
 
 
-ROUTES: list[Route] = []
+ROUTES: list[Route] = [
+    Route("GET", "/health", health.handle, None),
+]
 
 
 def dispatch(req: Request, deps: Deps, routes: list[Route]) -> Response:
