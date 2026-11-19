@@ -105,16 +105,17 @@ class SupabaseClient:
         self, table: str, query: Sequence[tuple[str, str]], token: str, *, service: bool = False
     ) -> list[dict[str, Any]]:
         """PostgREST GET. ``query`` holds select/filter/order/limit/offset pairs."""
-        return self.request(
-            "GET", f"/rest/v1/{table}", token=token, service=service, query=query
-        ) or []
+        return (
+            self.request("GET", f"/rest/v1/{table}", token=token, service=service, query=query)
+            or []
+        )
 
     def rpc(self, name: str, payload: dict[str, Any], token: str) -> Any:
         return self.request("POST", f"/rest/v1/rpc/{name}", token=token, payload=payload)
 
-    def invite_user(self, email: str, redirect_to: str) -> dict[str, Any]:
+    def invite_user(self, email: str, redirect_to: str = "") -> dict[str, Any]:
         """Send an invite e-mail (service role). Returns the created auth user."""
-        query = [("redirect_to", redirect_to)]
+        query = [("redirect_to", redirect_to)] if redirect_to else []
         return self.request(
             "POST", "/auth/v1/invite", service=True, query=query, payload={"email": email}
         )
@@ -135,3 +136,7 @@ class SupabaseClient:
         self.request(
             "DELETE", f"/rest/v1/{table}", service=True, query=query, prefer="return=minimal"
         )
+
+    def delete_auth_user(self, user_id: str) -> None:
+        """Remove an auth account (service role), e.g. to roll back a half-finished invite."""
+        self.request("DELETE", f"/auth/v1/admin/users/{user_id}", service=True)
