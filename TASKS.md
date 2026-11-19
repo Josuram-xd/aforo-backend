@@ -123,9 +123,9 @@ Las tareas v1 que la v2 reemplaza quedan marcadas con ~~tachado~~ y una nota; no
 - [x] **12.1** `docs: document v2 migration and deprecate aws api` — README y `ARCHITECTURE.md`: el API v1 queda en modo legado hasta la task 12.3.
 - [x] **12.2** `feat(infra): add throttling limits to api stage` — **Urgente mientras v1 siga en línea:** límite de peticiones (por ejemplo 10 req/s, ráfaga 20) en el stage del HTTP API para que nadie dispare costos. Junto con esto, la alerta de presupuesto de `aforo-db` task 3.1 debe estar activa.
 - [ ] **12.3** (sin commit) **URGENTE (revisión de seguridad 2026-10-15):** las rutas `GET` siguen abiertas y `GET /people` devuelve los nombres del roster a cualquiera que tenga la URL; el frontend v2 ya está en Amplify contra Supabase, así que no hay que esperar más. Cuando `aforo-vision` task 14 y `aforo-frontend` task 16 funcionen contra Supabase: `sam delete` del stack `aforo-pilot-backend` (confirmar antes) y quitar las variables de Amplify que apuntan al API viejo.
-- [ ] **12.4** `chore: remove lambda handlers and sam template` — Quitar `src/handlers`, `src/db`, `template.yaml` y los tests de v1; dejar solo lo de la task 13.
+- [x] **12.4** `chore: remove lambda handlers and sam template` — Hecho en la task 15 (se quitaron los handlers, `src/db`, `src/models` y los tests de v1; el `template.yaml` ahora es el del backend Python).
 
-### Task 13 — Edge Functions **(Prioridad 2)**
+### Task 13 — Edge Functions **(Prioridad 2)** — reemplazada por la task 15 (ADR-007)
 > Depende de: `aforo-db` task 7 (proyecto y esquema).
 
 - [x] **13.1** `feat(functions): add events csv export function` — `supabase/functions/export-events`: valida el JWT del usuario y su rol (`teacher` o `admin`), recibe `from`/`to` y `classroomId`, devuelve CSV con nombre del estudiante, dirección, método y confianza. Registra `EXPORT` en `audit_log`.
@@ -135,3 +135,17 @@ Las tareas v1 que la v2 reemplaza quedan marcadas con ~~tachado~~ y una nota; no
 
 ### Task 14 — Límite de peticiones en las Edge Functions **(Prioridad 2)**
 - [x] **14.1** `feat(functions): add per-user rate limit` — `_shared/ratelimit.ts`: 30 peticiones por minuto por usuario autenticado (429 si se supera), aplicado dentro de `authenticate`, o sea en `export-events` e `invite-user`. Ventana en memoria de cada instancia (límite documentado con `shortcut:`).
+
+---
+
+## Backend Python (ADR-007)
+
+### Task 15 — Backend 100 % Python en Lambda **(Prioridad 1)**
+- [x] **15.1** `chore: remove deprecated v1 DynamoDB lambdas and tests`
+- [x] **15.2** `feat(structures): add singly linked list, queue, stack, doubly linked list and binary search tree` — `src/structures/`, un commit por estructura, con pruebas.
+- [x] **15.3** `feat(services): add stdlib Supabase REST and auth client`
+- [x] **15.4** `feat(api): add auth, CORS, router and JSON helpers behind a single Lambda entry`
+- [x] **15.5** Rutas: `GET /health`, `GET /courses/{id}/roster`, `GET /sessions/{id}/report`, `/export-events` e `/invite-user` (portadas de las Edge Functions).
+- [x] **15.6** `chore(infra): rewrite SAM template for the Python HTTP API stack aforo-backend-py`
+- [x] **15.7** `chore: remove Supabase Edge Functions (TypeScript/Deno)`
+- [ ] **15.8** (sin commit) `sam deploy` del stack `aforo-backend-py` (confirmar antes) y probar las rutas con un token real del curso `TEST`.
